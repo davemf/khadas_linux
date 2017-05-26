@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/power/aml_dvfs/aml_dvfs.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #include <linux/cpufreq.h>
 #include <linux/amlogic/aml_dvfs.h>
@@ -27,6 +27,8 @@
 #include <linux/device.h>
 #include <linux/string.h>
 #include <linux/sched.h>
+#include <linux/cpu.h>
+#include <linux/pm_opp.h>
 
 #define DVFS_DBG(format, args...) \
 	({if (1) pr_info("[DVFS]"format, ##args); })
@@ -39,17 +41,12 @@
 DEFINE_MUTEX(driver_mutex);
 /*
  * @id: id of dvfs source
- * @table_count: count of dvfs table
  * @driver: voltage scale driver for this source
  * @table: dvfs table
  */
 struct aml_dvfs_master {
 	unsigned int			id;
-	unsigned int			table_count;
-
 	struct aml_dvfs_driver		*driver;
-	struct aml_dvfs			*table;
-	struct cpufreq_frequency_table  *freq_table;
 	struct mutex			mutex;
 	struct list_head		list;
 };
@@ -123,42 +120,16 @@ int aml_dvfs_unregister_driver(struct aml_dvfs_driver *driver)
 }
 EXPORT_SYMBOL_GPL(aml_dvfs_unregister_driver);
 
-int aml_dvfs_find_voltage(struct aml_dvfs *table, unsigned int freq,
-			  unsigned int *min_uV,
-			  unsigned int *max_uV,
-			  int count)
-{
-	int i = 0;
-
-	if (unlikely(freq <= table[0].freq)) {
-		*min_uV = table[0].min_uV;
-		*max_uV = table[0].max_uV;
-		return 0;
-	}
-	for (i = 0; i < count - 1; i++) {
-		if (table[i].freq	  <  freq &&
-			table[i + 1].freq >= freq) {
-			*min_uV = table[i + 1].min_uV;
-			*max_uV = table[i + 1].max_uV;
-			return 0;
-		}
-	}
-	return -EINVAL;
-}
-
-int aml_dvfs_do_voltage_change(struct aml_dvfs_master *master,
-			       uint32_t new_freq,
-			       uint32_t old_freq,
-			       uint32_t flags)
+static int aml_dvfs_do_voltage_change(struct aml_dvfs_master *master,
+				      uint32_t new_freq,
+				      uint32_t old_freq,
+				      uint32_t uv,
+				      uint32_t flags)
 {
 	uint32_t id = master->id;
-	uint32_t min_uV = 0, max_uV = 0, curr_voltage = 0;
+	uint32_t curr_voltage = 0;
 	int ret = 0;
 
-	if (master->table == NULL) {
-		DVFS_WARN("%s, no dvfs table\n", __func__);
-		goto error;
-	}
 	if (master->driver == NULL) {
 		DVFS_WARN("%s, no dvfs driver\n", __func__);
 		goto error;
@@ -168,21 +139,14 @@ int aml_dvfs_do_voltage_change(struct aml_dvfs_master *master,
 	 */
 	if ((flags == AML_DVFS_FREQ_PRECHANGE  && new_freq >= old_freq) ||
 	    (flags == AML_DVFS_FREQ_POSTCHANGE && new_freq <= old_freq)) {
-		if (aml_dvfs_find_voltage(master->table, new_freq, &min_uV,
-					  &max_uV,
-					  master->table_count) < 0) {
-			DVFS_DBG("%s, voltage not found for freq:%d\n",
-				 __func__, new_freq);
-			goto error;
-		}
 		if (master->driver->get_voltage) {
 			master->driver->get_voltage(id, &curr_voltage);
 			/* in range, do not change */
-			if (curr_voltage >= min_uV && curr_voltage <= max_uV) {
+			if (curr_voltage == uv) {
 			#if DEBUG_DVFS
 				DVFS_WARN("%s, voltage %d is in [%d, %d]\n",
 					  __func__, curr_voltage,
-					  min_uV, max_uV);
+					  uv, uv);
 			#endif
 				goto ok;
 			}
@@ -191,9 +155,9 @@ int aml_dvfs_do_voltage_change(struct aml_dvfs_master *master,
 		#if DEBUG_DVFS
 			DVFS_WARN("%s, freq [%u -> %u], voltage [%u -> %u]\n",
 				  __func__, old_freq, new_freq,
-				  curr_voltage, min_uV);
+				  curr_voltage, uv);
 		#endif
-			ret = master->driver->set_voltage(id, min_uV, max_uV);
+			ret = master->driver->set_voltage(id, uv, uv);
 		#if DEBUG_DVFS
 			DVFS_WARN("%s, set voltage finished\n", __func__);
 		#endif
@@ -205,10 +169,11 @@ error:
 	return -EINVAL;
 }
 
-int aml_dvfs_freq_change(unsigned int id,
-			 unsigned int new_freq,
-			 unsigned int old_freq,
-			 unsigned int flag)
+static int aml_dvfs_freq_change(unsigned int id,
+				unsigned int new_freq,
+				unsigned int old_freq,
+				unsigned int uv,
+				unsigned int flag)
 {
 	struct aml_dvfs_master  *m = NULL;
 	struct list_head	*element;
@@ -220,11 +185,59 @@ int aml_dvfs_freq_change(unsigned int id,
 			break;
 	}
 	mutex_lock(&m->mutex);
-	ret = aml_dvfs_do_voltage_change(m, new_freq, old_freq, flag);
+	ret = aml_dvfs_do_voltage_change(m, new_freq, old_freq, uv, flag);
 	mutex_unlock(&m->mutex);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(aml_dvfs_freq_change);
+
+static int aml_dvfs_cpufreq_nb_func(struct notifier_block *nb,
+				    unsigned long action, void *data)
+{
+	struct cpufreq_freqs *freqs = data;
+	struct device *dev;
+	struct dev_pm_opp *opp_new, *opp_old;
+	unsigned long voltage, freq_new, freq_old;
+	int cpu;
+
+	cpu = freqs->cpu;
+	dev = get_cpu_device(cpu);
+	if (!dev) {
+		pr_info("%s, %d\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	freq_new = freqs->new * 1000;
+	freq_old = freqs->old * 1000;
+	opp_new  = dev_pm_opp_find_freq_ceil(dev, &freq_new);
+	opp_old  = dev_pm_opp_find_freq_ceil(dev, &freq_old);
+
+	if (IS_ERR_OR_NULL(opp_new) || IS_ERR_OR_NULL(opp_old)) {
+		pr_info("%s, %d\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	freq_new = dev_pm_opp_get_freq(opp_new);
+	freq_old = dev_pm_opp_get_freq(opp_old);
+	voltage = dev_pm_opp_get_voltage(opp_new);
+	switch (action) {
+	case CPUFREQ_PRECHANGE:
+		aml_dvfs_freq_change(AML_DVFS_ID_VCCK, freq_new,
+				     freq_old, voltage,
+				     AML_DVFS_FREQ_PRECHANGE);
+		break;
+
+	case CPUFREQ_POSTCHANGE:
+		aml_dvfs_freq_change(AML_DVFS_ID_VCCK, freq_new,
+				     freq_old, voltage,
+				     AML_DVFS_FREQ_POSTCHANGE);
+		break;
+
+	default:
+		break;
+	}
+	return 0;
+}
+
+static struct notifier_block aml_cpufreq_nb;
 
 static int aml_dummy_set_voltage(uint32_t id, uint32_t min_uV, uint32_t max_uV)
 {
@@ -238,148 +251,21 @@ struct aml_dvfs_driver aml_dummy_dvfs_driver = {
 	.get_voltage = NULL,
 };
 
-#define DVFS_HELP_MSG		\
-	"HELP:\n" \
-	"   echo r [name] > dvfs         -- get voltage of [name]\n" \
-	"   echo w [name] [value] > dvfs -- set voltage [name] to [value]\n" \
-	"\n" \
-	"EXAMPLE:\n" \
-	"   echo r vcck > dvfs           -- read current voltage of vcck\n" \
-	"   echo w vcck 1100000 > dvfs   -- set voltage of vcck to 1.1v\n" \
-	"\n" \
-	"Supported names:\n" \
-	"   vcck    -- voltage of ARM core\n" \
-	"   vddee   -- voltage of VDDEE(everything else)\n" \
-	"   ddr     -- voltage of DDR\n"
-
-static ssize_t dvfs_help(struct class *class, struct class_attribute *attr,
-			 char *buf)
+static int aml_dvfs_init_for_master(struct aml_dvfs_master *master)
 {
-	return sprintf(buf, "%s", DVFS_HELP_MSG);
+	int ret = 0;
+
+	mutex_init(&master->mutex);
+	return ret;
 }
-
-static int get_dvfs_id_by_name(char *str)
-{
-	if (!strncmp(str, "vcck", 4)) {
-		str[4] = '\0';
-		return AML_DVFS_ID_VCCK;
-	} else if (!strncmp(str, "vddee", 5)) {
-		str[5] = '\0';
-		return AML_DVFS_ID_VDDEE;
-	} else if (!strncmp(str, "ddr", 3)) {
-		str[3] = '\0';
-		return AML_DVFS_ID_DDR;
-	}
-	return -1;
-}
-
-static ssize_t dvfs_class_write(struct class *class,
-				struct class_attribute *attr,
-				const char *buf, size_t count)
-{
-	int ret = -1;
-	int  id, i;
-	unsigned int uV;
-	char *arg[3] = {}, *para, *buf_work, *p;
-	struct aml_dvfs_master  *m, *t = NULL;
-	struct list_head	*element;
-
-	buf_work = kstrdup(buf, GFP_KERNEL);
-	p = buf_work;
-	for (i = 0; i < 3; i++) {
-		para = strsep(&p, " ");
-		if (para == NULL)
-			break;
-
-		arg[i] = para;
-	}
-	if (i < 2 || i > 3) {
-		ret = 1;
-		goto error;
-	}
-
-	switch (arg[0][0]) {
-	case 'r':
-		id = get_dvfs_id_by_name(arg[1]);
-		if (id < 0)
-			goto error;
-
-		list_for_each(element, &__aml_dvfs_list) {
-			m = list_entry(element, struct aml_dvfs_master, list);
-			if (m->id == id) {
-				t = m;
-				break;
-			}
-		}
-		if (!t) {
-			pr_info("get %s failed\n", arg[1]);
-			goto error;
-		}
-		mutex_lock(&t->mutex);
-		if (t->driver->get_voltage)
-			ret = t->driver->get_voltage(id, &uV);
-		mutex_unlock(&t->mutex);
-		if (ret < 0)
-			pr_info("get voltage of %s failed\n", arg[1]);
-		else
-			pr_info("voltage of %s is %d\n", arg[1], uV);
-		break;
-
-	case 'w':
-		if (i != 3)
-			goto error;
-
-		id = get_dvfs_id_by_name(arg[1]);
-		if (id < 0)
-			goto error;
-
-		if (kstrtouint(arg[2], 10, &uV)) {
-				pr_info("wrong input\n");
-				goto error;
-		}
-		list_for_each(element, &__aml_dvfs_list) {
-			m = list_entry(element, struct aml_dvfs_master, list);
-			if (m->id == id) {
-				t = m;
-				break;
-			}
-		}
-		if (!t) {
-			pr_info("get %s failed\n", arg[1]);
-			goto error;
-		}
-		mutex_lock(&t->mutex);
-		if (t->driver->set_voltage)
-			ret = t->driver->set_voltage(id, uV, uV);
-		mutex_unlock(&t->mutex);
-		if (ret < 0)
-			pr_info("set %s to %d uV failed\n", arg[1], uV);
-		else
-			pr_info("set %s to %d uV success\n", arg[1], uV);
-		break;
-	default:
-		break;
-	}
-error:
-	kfree(buf_work);
-	if (ret)
-		pr_info(" error\n");
-	return count;
-}
-
-static CLASS_ATTR(dvfs, S_IWUSR | S_IRUGO, dvfs_help, dvfs_class_write);
-struct class *aml_dvfs_class;
-
 
 static int aml_dvfs_probe(struct platform_device *pdev)
 {
 	struct device_node		*dvfs_node = pdev->dev.of_node;
 	struct device_node		*child;
 	struct aml_dvfs_master	*master;
-	struct aml_dvfs			*table;
 	int   err;
 	int   id = 0;
-	int   table_cnt;
 
 	for_each_child_of_node(dvfs_node, child) {
 		DVFS_DBG("%s, child name:%s\n", __func__, child->name);
@@ -396,46 +282,16 @@ static int aml_dvfs_probe(struct platform_device *pdev)
 		}
 		master->id = id;
 		/* get table count */
-		err = of_property_read_u32(child, "table_count", &table_cnt);
-		if (err) {
-			DVFS_DBG("%s, get 'table_count' failed\n", __func__);
-			continue;
-		}
-	#if DEBUG_DVFS
-		DVFS_DBG("%s, get table_count = %d\n", __func__, table_cnt);
-	#endif
-		master->table_count = table_cnt;
-		table = kzalloc(sizeof(*table) * table_cnt, GFP_KERNEL);
-		if (table == NULL) {
-			DVFS_DBG("%s, allocate memory failed\n", __func__);
-			return -ENOMEM;
-		}
-		err = of_property_read_u32_array(child, "dvfs_table",
-						 (uint32_t *)table,
-						 (sizeof(*table) * table_cnt) /
-						  sizeof(unsigned int));
-		DVFS_DBG("dvfs table of %s is:\n", child->name);
-		DVFS_DBG("%9s, %9s, %9s\n", "freq", "min_uV", "max_uV");
-		for (id = 0; id < table_cnt; id++) {
-			DVFS_DBG("%9d, %9d, %9d\n",
-				 table[id].freq, table[id].min_uV,
-				 table[id].max_uV);
-		}
-		if (err) {
-			DVFS_DBG("%s, get 'dvfs_table' failed\n", __func__);
-			continue;
-		}
-		master->table = table;
 		list_add_tail(&master->list, &__aml_dvfs_list);
-		err = of_property_read_bool(child, "change-frequent-only");
-		if (err) {
-			aml_dummy_dvfs_driver.id_mask = master->id;
-			aml_dvfs_register_driver(&aml_dummy_dvfs_driver);
-		}
+		if (aml_dvfs_init_for_master(master))
+			return -EINVAL;
 	}
 
-	aml_dvfs_class = class_create(THIS_MODULE, "dvfs");
-	return class_create_file(aml_dvfs_class, &class_attr_dvfs);
+	aml_cpufreq_nb.notifier_call = aml_dvfs_cpufreq_nb_func;
+	err = cpufreq_register_notifier(&aml_cpufreq_nb,
+					CPUFREQ_TRANSITION_NOTIFIER);
+
+	return err;
 }
 
 static int aml_dvfs_remove(struct platform_device *pdev)
@@ -443,11 +299,10 @@ static int aml_dvfs_remove(struct platform_device *pdev)
 	struct list_head *element;
 	struct aml_dvfs_master *master;
 
-	class_destroy(aml_dvfs_class);
+	cpufreq_unregister_notifier(&aml_cpufreq_nb,
+				    CPUFREQ_TRANSITION_NOTIFIER);
 	list_for_each(element, &__aml_dvfs_list) {
 		master = list_entry(element, struct aml_dvfs_master, list);
-		kfree(master->freq_table);
-		kfree(master->table);
 		kfree(master);
 	}
 	return 0;
@@ -484,7 +339,7 @@ static void __exit aml_dvfs_exit(void)
 	platform_driver_unregister(&aml_dvfs_prober);
 }
 
-arch_initcall(aml_dvfs_init);
+subsys_initcall(aml_dvfs_init);
 module_exit(aml_dvfs_exit);
 
 MODULE_LICENSE("GPL v2");

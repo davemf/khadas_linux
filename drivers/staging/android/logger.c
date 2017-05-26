@@ -29,6 +29,7 @@
 #include <linux/time.h>
 #include <linux/vmalloc.h>
 #include <linux/aio.h>
+#include <linux/uio.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -54,7 +55,7 @@ struct logger_log {
 	struct miscdevice	misc;
 	wait_queue_head_t	wq;
 	struct list_head	readers;
-	struct mutex		mutex;
+	struct mutex		mutex; /* log mutex */
 	size_t			w_off;
 	size_t			head;
 	size_t			size;
@@ -62,7 +63,6 @@ struct logger_log {
 };
 
 static LIST_HEAD(log_list);
-
 
 /**
  * struct logger_reader - a logging device open for reading
@@ -89,7 +89,6 @@ static size_t logger_offset(struct logger_log *log, size_t n)
 	return n & (log->size - 1);
 }
 
-
 /*
  * file_get_log - Given a file structure, return the associated log
  *
@@ -108,9 +107,10 @@ static inline struct logger_log *file_get_log(struct file *file)
 {
 	if (file->f_mode & FMODE_READ) {
 		struct logger_reader *reader = file->private_data;
+
 		return reader->log;
-	} else
-		return file->private_data;
+	}
+	return file->private_data;
 }
 
 /*
@@ -121,17 +121,19 @@ static inline struct logger_log *file_get_log(struct file *file)
  * the log entry spans the end and beginning of the circular buffer.
  */
 static struct logger_entry *get_entry_header(struct logger_log *log,
-		size_t off, struct logger_entry *scratch)
+					     size_t off,
+					     struct logger_entry *scratch)
 {
 	size_t len = min(sizeof(struct logger_entry), log->size - off);
+
 	if (len != sizeof(struct logger_entry)) {
-		memcpy(((void *) scratch), log->buffer + off, len);
-		memcpy(((void *) scratch) + len, log->buffer,
-			sizeof(struct logger_entry) - len);
+		memcpy(((void *)scratch), log->buffer + off, len);
+		memcpy(((void *)scratch) + len, log->buffer,
+		       sizeof(struct logger_entry) - len);
 		return scratch;
 	}
 
-	return (struct logger_entry *) (log->buffer + off);
+	return (struct logger_entry *)(log->buffer + off);
 }
 
 /*
@@ -157,12 +159,11 @@ static size_t get_user_hdr_len(int ver)
 {
 	if (ver < 2)
 		return sizeof(struct user_logger_entry_compat);
-	else
-		return sizeof(struct logger_entry);
+	return sizeof(struct logger_entry);
 }
 
 static ssize_t copy_header_to_user(int ver, struct logger_entry *entry,
-					 char __user *buf)
+				   char __user *buf)
 {
 	void *hdr;
 	size_t hdr_len;
@@ -212,7 +213,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 	count -= get_user_hdr_len(reader->r_ver);
 	buf += get_user_hdr_len(reader->r_ver);
 	msg_start = logger_offset(log,
-		reader->r_off + sizeof(struct logger_entry));
+				  reader->r_off + sizeof(struct logger_entry));
 
 	/*
 	 * We read from the msg in two disjoint operations. First, we read from
@@ -242,7 +243,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
  * 'log->buffer' which contains the first entry readable by 'euid'
  */
 static size_t get_next_entry_by_uid(struct logger_log *log,
-		size_t off, kuid_t euid)
+				    size_t off, kuid_t euid)
 {
 	while (off != log->w_off) {
 		struct logger_entry *entry;
@@ -410,69 +411,18 @@ static void fix_up_readers(struct logger_log *log, size_t len)
 }
 
 /*
- * do_write_log - writes 'len' bytes from 'buf' to 'log'
- *
- * The caller needs to hold log->mutex.
- */
-static void do_write_log(struct logger_log *log, const void *buf, size_t count)
-{
-	size_t len;
-
-	len = min(count, log->size - log->w_off);
-	memcpy(log->buffer + log->w_off, buf, len);
-
-	if (count != len)
-		memcpy(log->buffer, buf + len, count - len);
-
-	log->w_off = logger_offset(log, log->w_off + count);
-
-}
-
-/*
- * do_write_log_user - writes 'len' bytes from the user-space buffer 'buf' to
- * the log 'log'
- *
- * The caller needs to hold log->mutex.
- *
- * Returns 'count' on success, negative error code on failure.
- */
-static ssize_t do_write_log_from_user(struct logger_log *log,
-				      const void __user *buf, size_t count)
-{
-	size_t len;
-
-	len = min(count, log->size - log->w_off);
-	if (len && copy_from_user(log->buffer + log->w_off, buf, len))
-		return -EFAULT;
-
-	if (count != len)
-		if (copy_from_user(log->buffer, buf + len, count - len))
-			/*
-			 * Note that by not updating w_off, this abandons the
-			 * portion of the new entry that *was* successfully
-			 * copied, just above.  This is intentional to avoid
-			 * message corruption from missing fragments.
-			 */
-			return -EFAULT;
-
-	log->w_off = logger_offset(log, log->w_off + count);
-
-	return count;
-}
-
-/*
- * logger_aio_write - our write method, implementing support for write(),
+ * logger_write_iter - our write method, implementing support for write(),
  * writev(), and aio_write(). Writes are our fast path, and we try to optimize
  * them above all else.
  */
-static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
-			 unsigned long nr_segs, loff_t ppos)
+static ssize_t logger_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct logger_log *log = file_get_log(iocb->ki_filp);
-	size_t orig;
 	struct logger_entry header;
 	struct timespec now;
-	ssize_t ret = 0;
+	size_t len, count, w_off;
+
+	count = min_t(size_t, iov_iter_count(from), LOGGER_ENTRY_MAX_PAYLOAD);
 
 	now = current_kernel_time();
 
@@ -481,7 +431,7 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	header.sec = now.tv_sec;
 	header.nsec = now.tv_nsec;
 	header.euid = current_euid();
-	header.len = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD);
+	header.len = count;
 	header.hdr_size = sizeof(struct logger_entry);
 
 	/* null writes succeed, return zero */
@@ -489,8 +439,6 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		return 0;
 
 	mutex_lock(&log->mutex);
-
-	orig = log->w_off;
 
 	/*
 	 * Fix up any readers, pulling them forward to the first readable
@@ -500,33 +448,38 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	 */
 	fix_up_readers(log, sizeof(struct logger_entry) + header.len);
 
-	do_write_log(log, &header, sizeof(struct logger_entry));
+	len = min(sizeof(header), log->size - log->w_off);
+	memcpy(log->buffer + log->w_off, &header, len);
+	memcpy(log->buffer, (char *)&header + len, sizeof(header) - len);
 
-	while (nr_segs-- > 0) {
-		size_t len;
-		ssize_t nr;
+	/* Work with a copy until we are ready to commit the whole entry */
+	w_off =  logger_offset(log, log->w_off + sizeof(struct logger_entry));
 
-		/* figure out how much of this vector we can keep */
-		len = min_t(size_t, iov->iov_len, header.len - ret);
+	len = min(count, log->size - w_off);
 
-		/* write out this segment's payload */
-		nr = do_write_log_from_user(log, iov->iov_base, len);
-		if (unlikely(nr < 0)) {
-			log->w_off = orig;
-			mutex_unlock(&log->mutex);
-			return nr;
-		}
-
-		iov++;
-		ret += nr;
+	if (copy_from_iter(log->buffer + w_off, len, from) != len) {
+		/*
+		 * Note that by not updating log->w_off, this abandons the
+		 * portion of the new entry that *was* successfully
+		 * copied, just above.  This is intentional to avoid
+		 * message corruption from missing fragments.
+		 */
+		mutex_unlock(&log->mutex);
+		return -EFAULT;
 	}
 
+	if (copy_from_iter(log->buffer, count - len, from) != count - len) {
+		mutex_unlock(&log->mutex);
+		return -EFAULT;
+	}
+
+	log->w_off = logger_offset(log, w_off + count);
 	mutex_unlock(&log->mutex);
 
 	/* wake up any blocked readers */
 	wake_up_interruptible(&log->wq);
 
-	return ret;
+	return len;
 }
 
 static struct logger_log *get_log_from_minor(int minor)
@@ -560,7 +513,7 @@ static int logger_open(struct inode *inode, struct file *file)
 	if (file->f_mode & FMODE_READ) {
 		struct logger_reader *reader;
 
-		reader = kmalloc(sizeof(struct logger_reader), GFP_KERNEL);
+		reader = kmalloc(sizeof(*reader), GFP_KERNEL);
 		if (!reader)
 			return -ENOMEM;
 
@@ -577,8 +530,9 @@ static int logger_open(struct inode *inode, struct file *file)
 		mutex_unlock(&log->mutex);
 
 		file->private_data = reader;
-	} else
+	} else {
 		file->private_data = log;
+	}
 
 	return 0;
 }
@@ -642,6 +596,7 @@ static unsigned int logger_poll(struct file *file, poll_table *wait)
 static long logger_set_version(struct logger_reader *reader, void __user *arg)
 {
 	int version;
+
 	if (copy_from_user(&version, arg, sizeof(int)))
 		return -EFAULT;
 
@@ -657,7 +612,7 @@ static long logger_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct logger_log *log = file_get_log(file);
 	struct logger_reader *reader;
 	long ret = -EINVAL;
-	void __user *argp = (void __user *) arg;
+	void __user *argp = (void __user *)arg;
 
 	mutex_lock(&log->mutex);
 
@@ -699,7 +654,7 @@ static long logger_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (!(in_egroup_p(file_inode(file)->i_gid) ||
-				capable(CAP_SYSLOG))) {
+		      capable(CAP_SYSLOG))) {
 			ret = -EPERM;
 			break;
 		}
@@ -734,7 +689,7 @@ static long logger_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static const struct file_operations logger_fops = {
 	.owner = THIS_MODULE,
 	.read = logger_read,
-	.aio_write = logger_aio_write,
+	.write_iter = logger_write_iter,
 	.poll = logger_poll,
 	.unlocked_ioctl = logger_ioctl,
 	.compat_ioctl = logger_ioctl,
@@ -753,11 +708,11 @@ static int __init create_log(char *log_name, int size)
 	unsigned char *buffer;
 
 	buffer = vmalloc(size);
-	if (buffer == NULL)
+	if (!buffer)
 		return -ENOMEM;
 
-	log = kzalloc(sizeof(struct logger_log), GFP_KERNEL);
-	if (log == NULL) {
+	log = kzalloc(sizeof(*log), GFP_KERNEL);
+	if (!log) {
 		ret = -ENOMEM;
 		goto out_free_buffer;
 	}
@@ -765,7 +720,7 @@ static int __init create_log(char *log_name, int size)
 
 	log->misc.minor = MISC_DYNAMIC_MINOR;
 	log->misc.name = kstrdup(log_name, GFP_KERNEL);
-	if (log->misc.name == NULL) {
+	if (!log->misc.name) {
 		ret = -ENOMEM;
 		goto out_free_log;
 	}
@@ -787,14 +742,17 @@ static int __init create_log(char *log_name, int size)
 	ret = misc_register(&log->misc);
 	if (unlikely(ret)) {
 		pr_err("failed to register misc device for log '%s'!\n",
-				log->misc.name);
-		goto out_free_log;
+		       log->misc.name);
+		goto out_free_misc_name;
 	}
 
 	pr_info("created %luK log '%s'\n",
-		(unsigned long) log->size >> 10, log->misc.name);
+		(unsigned long)log->size >> 10, log->misc.name);
 
 	return 0;
+
+out_free_misc_name:
+	kfree(log->misc.name);
 
 out_free_log:
 	kfree(log);
@@ -808,19 +766,19 @@ static int __init logger_init(void)
 {
 	int ret;
 
-	ret = create_log(LOGGER_LOG_MAIN, 256*1024);
+	ret = create_log(LOGGER_LOG_MAIN, 512 * 1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_EVENTS, 256*1024);
+	ret = create_log(LOGGER_LOG_EVENTS, 1 * 1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_RADIO, 256*1024);
+	ret = create_log(LOGGER_LOG_RADIO, 1 * 1024);
 	if (unlikely(ret))
 		goto out;
 
-	ret = create_log(LOGGER_LOG_SYSTEM, 256*1024);
+	ret = create_log(LOGGER_LOG_SYSTEM, 16 * 1024);
 	if (unlikely(ret))
 		goto out;
 
@@ -841,7 +799,6 @@ static void __exit logger_exit(void)
 		kfree(current_log);
 	}
 }
-
 
 device_initcall(logger_init);
 module_exit(logger_exit);

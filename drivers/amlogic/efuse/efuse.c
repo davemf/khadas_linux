@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/efuse/efuse.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
-
+ */
 
 #include <linux/cdev.h>
 #include <linux/types.h>
@@ -26,9 +25,12 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
-
+#include <linux/of_address.h>
 #include <linux/amlogic/secmon.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include "efuse.h"
+#include "efuse_regs.h"
 
 #define EFUSE_MODULE_NAME   "efuse"
 #define EFUSE_DRIVER_NAME	"efuse"
@@ -37,18 +39,15 @@
 #define EFUSE_IS_OPEN           (0x01)
 
 struct efuse_dev_t {
-	struct cdev         cdev;
-	unsigned int        flags;
+	struct cdev cdev;
+	unsigned int flags;
 };
 
 static struct efuse_dev_t *efuse_devp;
 /* static struct class *efuse_clsp; */
 static dev_t efuse_devno;
-
-void __iomem *sharemem_input_base;
-void __iomem *sharemem_output_base;
-unsigned efuse_read_cmd;
-unsigned efuse_write_cmd;
+void __iomem *efuse_base;
+struct clk *efuse_clk;
 
 static int efuse_open(struct inode *inode, struct file *file)
 {
@@ -103,10 +102,11 @@ static long efuse_unlocked_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
 	struct efuseinfo_item_t *info;
+
 	switch (cmd) {
 	case EFUSE_INFO_GET:
 		info = (struct efuseinfo_item_t *)arg;
-		if (efuse_getinfo_byID(info->id, info) < 0)
+		if (efuse_getinfo_byTitle(info->title, info) < 0)
 			return  -EFAULT;
 		break;
 
@@ -116,15 +116,15 @@ static long efuse_unlocked_ioctl(struct file *file, unsigned int cmd,
 	return 0;
 }
 
-
 static ssize_t efuse_read(struct file *file, char __user *buf,
 	size_t count, loff_t *ppos)
 {
 	int ret;
 	int local_count = 0;
-	unsigned char *local_buf = kzalloc(sizeof(char)*count, GFP_KERNEL);
+	unsigned char *local_buf = kcalloc(count, sizeof(char), GFP_KERNEL);
+
 	if (!local_buf) {
-		pr_info("memory not enough\n");
+		/* pr_info("memory not enough\n"); */
 		return -ENOMEM;
 	}
 
@@ -171,14 +171,14 @@ static ssize_t efuse_write(struct file *file,
 
 	contents = kzalloc(sizeof(unsigned char)*EFUSE_BYTES, GFP_KERNEL);
 	if (!contents) {
-		pr_info("memory not enough\n");
+		/* pr_info("memory not enough\n"); */
 		return -ENOMEM;
 	}
 	size = sizeof(contents);
 	memset(contents, 0, size);
 	if (copy_from_user(contents, buf, count)) {
 		/*if (contents)*/
-			kfree(contents);
+		kfree(contents);
 		return -EFAULT;
 	}
 
@@ -191,7 +191,6 @@ static ssize_t efuse_write(struct file *file,
 	return count;
 }
 
-
 static const struct file_operations efuse_fops = {
 	.owner      = THIS_MODULE,
 	.llseek     = efuse_llseek,
@@ -203,207 +202,206 @@ static const struct file_operations efuse_fops = {
 };
 
 /* Sysfs Files */
-static ssize_t mac_show(struct class *cla,
-	struct class_attribute *attr, char *buf)
+ssize_t efuse_attr_store(char *name, const char *buf, size_t count)
 {
-	char dec_mac[6] = {0};
-	struct efuseinfo_item_t info;
-
-	if (efuse_getinfo_byID(EFUSE_MAC_ID, &info) < 0) {
-		pr_err("ID is not found\n");
-		return -EFAULT;
-	}
-
-	if (efuse_read_item(dec_mac, info.data_len, (loff_t *)&info.offset) < 0)
-		return -EFAULT;
-
-	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
-			dec_mac[0], dec_mac[1], dec_mac[2],
-			dec_mac[3], dec_mac[4], dec_mac[5]);
-}
-
-static ssize_t mac_wifi_show(struct class *cla,
-	struct class_attribute *attr, char *buf)
-{
-	char dec_mac[6] = {0};
-	struct efuseinfo_item_t info;
-
-	if (efuse_getinfo_byID(EFUSE_MAC_WIFI_ID, &info) < 0) {
-		pr_err("ID is not found\n");
-		return -EFAULT;
-	}
-
-	if (efuse_read_item(dec_mac, info.data_len, (loff_t *)&info.offset) < 0)
-		return -EFAULT;
-
-	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
-			dec_mac[0], dec_mac[1], dec_mac[2],
-			dec_mac[3], dec_mac[4], dec_mac[5]);
-}
-
-
-static ssize_t mac_bt_show(struct class *cla,
-	struct class_attribute *attr, char *buf)
-{
-	char dec_mac[6] = {0};
-	struct efuseinfo_item_t info;
-
-	if (efuse_getinfo_byID(EFUSE_MAC_BT_ID, &info) < 0) {
-		pr_info("ID is not found\n");
-		return -EFAULT;
-	}
-	if (efuse_read_item(dec_mac, info.data_len, (loff_t *)&info.offset) < 0)
-		return -EFAULT;
-
-	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
-			dec_mac[0], dec_mac[1], dec_mac[2],
-			dec_mac[3], dec_mac[4], dec_mac[5]);
-}
-
-static int efuse_device_match(struct device *dev, const void *data)
-{
-	int ret;
-	ret = strcmp(dev->kobj.name, (const char *)data);
-	return !ret;
-}
-
-struct device *efuse_class_to_device(struct class *cla)
-{
-	struct device		*dev;
-
-	dev = class_find_device(cla, NULL, (void *)cla->name,
-				efuse_device_match);
-	if (!dev)
-		pr_info("%s no matched device found!/n", __func__);
-	return dev;
-}
-
-static ssize_t userdata_show(struct class *cla,
-	struct class_attribute *attr, char *buf)
-{
-	char *op;
-	bool ret = true;
-	int i, size;
-	struct efuseinfo_item_t info;
-	char tmp[5];
-
-	if (efuse_getinfo_byID(EFUSE_USID_ID, &info) < 0) {
-		pr_err("ID is not found\n");
-		return -1;
-	}
-
-	op = kmalloc(sizeof(char)*info.data_len, GFP_KERNEL);
-	if (!op) {
-		pr_err("efuse: failed to allocate memory\n");
-		ret = -ENOMEM;
-		return ret;
-	}
-
-	size = sizeof(op);
-	memset(op, 0, size);
-	if (efuse_read_item(op, info.data_len, (loff_t *)&info.offset) < 0) {
-		/*if (op)*/
-		kfree(op);
-		return -1;
-	}
-
-	for (i = 0; i < info.data_len; i++) {
-		memset(tmp, 0, 5);
-		sprintf(tmp, "%02x:", op[i]);
-		strcat(buf, tmp);
-	}
-	buf[3*info.data_len - 1] = 0; /* delete the last ':' */
-	return 3*info.data_len - 1;
-}
-
 #ifndef EFUSE_READ_ONLY
-static ssize_t userdata_write(struct class *cla,
-	struct class_attribute *attr, const char *buf, size_t count)
-{
+	char *local_buf;
+	ssize_t ret;
+	int i;
+	const unsigned char *s;
 	struct efuseinfo_item_t info;
-	int i, size;
-	unsigned local_count = count;
-	struct efuse_platform_data *data = NULL;
-	struct device	*dev = NULL;
-	bool ret = true;
-	char *op = NULL;
-	dev = efuse_class_to_device(cla);
-	data = dev->platform_data;
+	unsigned int uint_val;
 
-	if (!data) {
-		pr_err("%s error!no platform_data!\n", __func__);
-		return -1;
+	if (efuse_getinfo_byTitle(name, &info) < 0) {
+		pr_err("%s is not found\n", name);
+		return -EFAULT;
 	}
 
-	if (local_count > data->count)
-		local_count = data->count;
-	if (efuse_getinfo_byID(EFUSE_USID_ID, &info) < 0) {
-		pr_info("ID is not found\n");
-		return -1;
+	if (count < info.data_len) {
+		pr_info("%s:item: %s: size: %d too few arguments to store\n",
+			__func__, name, info.data_len);
+		count = info.data_len + 1;
 	}
-
 	if (check_if_efused(info.offset, info.data_len)) {
+
 		pr_err("%s error!data_verify failed!\n", __func__);
 		return -1;
 	}
 
-	op = kzalloc((sizeof(char)*(info.data_len)), GFP_KERNEL);
-	if (!op) {
-		pr_err("efuse: failed to allocate memory\n");
-		ret = -ENOMEM;
-		return ret;
+	local_buf = kzalloc(sizeof(char)*(count), GFP_KERNEL);
+
+	memcpy(local_buf, buf, (strlen(buf) < info.data_len)
+		? strlen(buf):count);
+
+	s = local_buf;
+
+	strim(local_buf);
+
+	/* only support separated with whitespace or colon
+	 * eg. A1:B2:C3 or D4 E5 F6 in hexadecimal
+	 */
+	if ((strstr(s, ":") != NULL) || (strstr(s, " ") != NULL)) {
+		for (i = 0; i < info.data_len; i++) {
+			while ((!strncmp(s, ":", 1)) ||
+				!strncmp(s, " ", 1))
+			s++;
+			if (!*s) {
+				local_buf[i] = 0;
+				continue;
+			}
+				ret = sscanf(s, "%x", &uint_val);
+				if (ret < 0) {
+					pr_err("ERROR: efuse get user data fail!\n");
+					goto error_exit;
+				} else {
+					local_buf[i] = uint_val;
+					s += 2;
+				}
+
+				pr_debug("local_buf[%d]: 0x%x\n",
+					i, local_buf[i]);
+			}
+	} else {/* only support separated with whitespace */
+		for (i = 0; i < info.data_len; i++) {
+			uint_val = 0;
+			if (!*s) {
+				local_buf[i] = 0;
+				continue;
+			}
+			ret = sscanf(s, "%x", &uint_val);
+
+			if (ret < 0) {
+				pr_err("ERROR: efuse get user data fail!\n");
+				goto error_exit;
+			} else {
+				local_buf[i] = uint_val;
+				s += 2;
+			}
+			pr_debug("local_buf[%d]: 0x%x\n",
+				i, local_buf[i]);
+			}
 	}
 
-	size = sizeof(op);
-	memset(op, 0, size);
-	for (i = 0; i < local_count; i++)
-		op[i] = buf[i];
+	ret = efuse_write_item(local_buf, info.data_len,
+		(loff_t *)&(info.offset));
+	if (ret == -1) {
+		pr_err("ERROR: efuse write user data fail!\n");
+		goto error_exit;
+	}
+	if (ret != info.data_len)
+		pr_err("ERROR: write %zd byte(s) not %d byte(s) data\n",
+			ret, info.data_len);
+	pr_info("efuse write %zd data OK\n", ret);
 
-	if (efuse_write_item(op, info.data_len, (loff_t *)&info.offset) < 0)
-		return -1;
-
-/* if (op) */
-		kfree(op);
-	return local_count;
-}
+error_exit:
+	kfree(local_buf);
+	return ret;
+#else
+	pr_err("no permission to write!!\n");
+	return -1;
 #endif
+}
+
+ssize_t efuse_attr_show(char *name, char *buf)
+{
+	char *local_buf;
+	ssize_t ret;
+	int i;
+	struct efuseinfo_item_t info;
+
+	if (efuse_getinfo_byTitle(name, &info) < 0) {
+		pr_err("%s is not found\n", name);
+		return -EFAULT;
+	}
+
+	local_buf = kzalloc(sizeof(char)*(info.data_len), GFP_KERNEL);
+	memset(local_buf, 0, info.data_len);
+
+	ret = efuse_read_item(local_buf, info.data_len,
+		(loff_t *)&(info.offset));
+	if (ret == -1) {
+		pr_err("ERROR: efuse read user data fail!\n");
+		goto error_exit;
+	}
+	if (ret != info.data_len)
+		pr_err("ERROR: read %zd byte(s) not %d byte(s) data\n",
+			ret, info.data_len);
+
+	for (i = 0; i < info.data_len; i++)
+		buf[i] = local_buf[i];
+
+error_exit:
+	kfree(local_buf);
+	return ret;
+}
+
+#define  DEFINE_EFUE_SHOW_ATTR(name)	\
+	static ssize_t show_##name(struct class *cla, \
+					  struct class_attribute *attr,	\
+						char *buf)	\
+	{	\
+		ssize_t ret;	\
+		int i = 0; \
+		\
+		ret = efuse_attr_show(#name, buf); \
+		if (ret > 0) {\
+		pr_info("efuse read data\n"); \
+		for (; i < ret; i++) \
+			pr_info("%02x%s", buf[i], ((i+1)%16 == 0)?"\n":":"); \
+		pr_info("\n"); \
+		} \
+		return ret; \
+	}
+
+DEFINE_EFUE_SHOW_ATTR(version)
+DEFINE_EFUE_SHOW_ATTR(mac)
+DEFINE_EFUE_SHOW_ATTR(mac_bt)
+DEFINE_EFUE_SHOW_ATTR(mac_wifi)
+DEFINE_EFUE_SHOW_ATTR(usid)
+
+#define  DEFINE_EFUE_STORE_ATTR(name)	\
+	static ssize_t store_##name(struct class *cla, \
+					  struct class_attribute *attr,	\
+						const char *buf,	\
+						size_t count)	\
+	{	\
+		ssize_t ret;	\
+		\
+		ret = efuse_attr_store(#name, buf, count); \
+		return ret; \
+	}
+#ifdef CONFIG_AMLOGIC_EFUSE_WRITE_VERSION_PERMIT
+DEFINE_EFUE_STORE_ATTR(version)
+#endif
+//DEFINE_EFUE_STORE_ATTR(mac)
+//DEFINE_EFUE_STORE_ATTR(mac_bt)
+//DEFINE_EFUE_STORE_ATTR(mac_wifi)
+DEFINE_EFUE_STORE_ATTR(usid)
 
 static struct class_attribute efuse_class_attrs[] = {
-
-	__ATTR_RO(mac),
-
-	__ATTR_RO(mac_wifi),
-
-	__ATTR_RO(mac_bt),
-
-	#ifndef EFUSE_READ_ONLY
-	/*make the efuse can not be write through sysfs */
-	__ATTR(userdata, S_IRWXU, userdata_show, userdata_write),
-
-	#else
-	__ATTR_RO(userdata),
-
-	#endif
+#ifdef CONFIG_AMLOGIC_EFUSE_WRITE_VERSION_PERMIT
+	__ATTR(version, 0700, show_version, store_version),
+#else
+	__ATTR(version, 0500, show_version, NULL),
+#endif
+	__ATTR(mac, 0500, show_mac, NULL),
+	__ATTR(mac_bt, 0500, show_mac_bt, NULL),
+	__ATTR(mac_wifi, 0500, show_mac_wifi, NULL),
+	__ATTR(usid, 0700, show_usid, store_usid),
 	__ATTR_NULL
 
 };
 
 static struct class efuse_class = {
-
 	.name = EFUSE_CLASS_NAME,
-
 	.class_attrs = efuse_class_attrs,
-
 };
-
 
 static int efuse_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device *devp;
-	struct efuse_platform_data aml_efuse_plat;
 	struct device_node *np = pdev->dev.of_node;
-	int pos, count, usid_min, usid_max;
 
 	ret = alloc_chrdev_region(&efuse_devno, 0, 1, EFUSE_DEVICE_NAME);
 	if (ret < 0) {
@@ -418,11 +416,17 @@ static int efuse_probe(struct platform_device *pdev)
 
 	efuse_devp = kmalloc(sizeof(struct efuse_dev_t), GFP_KERNEL);
 	if (!efuse_devp) {
-		dev_err(&pdev->dev, "efuse: failed to allocate memory\n");
+		/* dev_err(&pdev->dev, "efuse: failed to allocate memory\n"); */
 		ret = -ENOMEM;
 		goto error2;
 	}
 
+	efuse_base = of_iomap(pdev->dev.of_node, 0);
+	if (!efuse_base) {
+		pr_err("%s: Unable to map efuse base\n", __func__);
+		ret = -ENXIO;
+		goto error3;
+	}
 	/* connect the file operations with cdev */
 	cdev_init(&efuse_devp->cdev, &efuse_fops);
 	efuse_devp->cdev.owner = THIS_MODULE;
@@ -430,20 +434,20 @@ static int efuse_probe(struct platform_device *pdev)
 	ret = cdev_add(&efuse_devp->cdev, efuse_devno, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "efuse: failed to add device\n");
-		goto error3;
+		goto error4;
 	}
 
 	devp = device_create(&efuse_class, NULL, efuse_devno, NULL, "efuse");
 	if (IS_ERR(devp)) {
 		dev_err(&pdev->dev, "efuse: failed to create device node\n");
 		ret = PTR_ERR(devp);
-		goto error4;
+		goto error5;
 	}
 	dev_dbg(&pdev->dev, "device %s created\n", EFUSE_DEVICE_NAME);
 
 	if (pdev->dev.of_node) {
 		of_node_get(np);
-
+#if 0
 		ret = of_property_read_u32(np, "plat-pos", &pos);
 		if (ret) {
 			dev_err(&pdev->dev, "please config plat-pos item\n");
@@ -464,31 +468,28 @@ static int efuse_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "please config usid-max item\n");
 			return -1;
 		}
-
-		ret = of_property_read_u32(np, "read_cmd", &efuse_read_cmd);
-		if (ret) {
-			dev_err(&pdev->dev, "please config read_cmd item\n");
-			return -1;
-		}
-
-		ret = of_property_read_u32(np, "write_cmd", &efuse_write_cmd);
-		if (ret) {
-			dev_err(&pdev->dev, "please config write_cmd item\n");
-			return -1;
-		}
+#endif
 		/* todo reserved for user id <usid-min ~ usid max> */
 	}
-	devp->platform_data = &aml_efuse_plat;
+	/* open clk gate HHI_GCLK_MPEG0 bit62*/
+	efuse_clk = devm_clk_get(&pdev->dev, "efuse_clk");
+	if (IS_ERR(efuse_clk))
+		dev_err(&pdev->dev, " open efuse clk gate error!!\n");
+	else{
+		ret = clk_prepare_enable(efuse_clk);
+		if (ret)
+			dev_err(&pdev->dev, "enable efuse clk gate error!!\n");
+	}
 
-	sharemem_input_base = get_secmon_sharemem_input_base();
-	sharemem_output_base = get_secmon_sharemem_output_base();
 	dev_info(&pdev->dev, "probe ok!\n");
 	return 0;
 
-error4:
+error5:
 	cdev_del(&efuse_devp->cdev);
-error3:
+error4:
 	kfree(efuse_devp);
+error3:
+	iounmap(efuse_base);
 error2:
 	/* class_destroy(efuse_clsp); */
 	class_unregister(&efuse_class);
@@ -505,6 +506,7 @@ static int efuse_remove(struct platform_device *pdev)
 	device_destroy(&efuse_class, efuse_devno);
 	cdev_del(&efuse_devp->cdev);
 	kfree(efuse_devp);
+	iounmap(efuse_base);
 	/* class_destroy(efuse_clsp); */
 	class_unregister(&efuse_class);
 	return 0;
@@ -529,6 +531,7 @@ static struct platform_driver efuse_driver = {
 static int __init efuse_init(void)
 {
 	int ret = -1;
+
 	ret = platform_driver_register(&efuse_driver);
 	if (ret != 0) {
 		pr_err("failed to register efuse driver, error %d\n", ret);
@@ -548,19 +551,4 @@ module_exit(efuse_exit);
 
 MODULE_DESCRIPTION("AMLOGIC eFuse driver");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Bo Yang <bo.yang@amlogic.com>");
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+MODULE_AUTHOR("Yun Cai <yun.cai@amlogic.com>");

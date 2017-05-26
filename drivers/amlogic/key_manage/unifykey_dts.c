@@ -1,3 +1,20 @@
+/*
+ * drivers/amlogic/key_manage/unifykey_dts.c
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #include <linux/cdev.h>
 #include <linux/types.h>
 #include <linux/fs.h>
@@ -32,7 +49,7 @@ int unifykey_item_verify_check(struct key_item_t *key_item)
 		pr_err("%s:%d unify key item is invalid\n", __func__, __LINE__);
 		return -1;
 	}
-	if (key_item->dev == KEY_M_UNKNOW_DEV) {
+	if (key_item->dev == KEY_M_UNKNOWN_DEV) {
 		pr_err("%s:%d unify key item is invalid\n", __func__, __LINE__);
 		return -1;
 	}
@@ -57,6 +74,7 @@ struct key_item_t *unifykey_find_item_by_name(char *name)
 struct key_item_t *unifykey_find_item_by_id(int id)
 {
 	struct key_item_t *pre_item;
+
 	pre_item = unifykey_item;
 	while (pre_item) {
 		if (pre_item->id == id)
@@ -83,6 +101,7 @@ int unifykey_count_key(void)
 char unifykey_get_efuse_version(void)
 {
 	char ver = 0;
+
 	if (unify_key_info.efuse_version != -1)
 		ver = (char)unify_key_info.efuse_version;
 	return ver;
@@ -106,6 +125,7 @@ static int unifykey_add_to_list(struct key_item_t *item)
 static int unifykey_free_list(void)
 {
 	struct key_item_t *pre_item;
+
 	pre_item = unifykey_item;
 	while (pre_item) {
 		unifykey_item = unifykey_item->next;
@@ -124,7 +144,6 @@ static int unifykey_item_parse_dt(struct device_node *node, int id)
 
 	temp_item = kzalloc(sizeof(struct key_item_t), GFP_KERNEL);
 	if (!temp_item) {
-		pr_err("%s:%d,no memory for key_item\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		return ret;
 	}
@@ -158,7 +177,7 @@ static int unifykey_item_parse_dt(struct device_node *node, int id)
 		else if (strcmp(propname, KEY_DEV_SECURE) == 0)
 			temp_item->dev = KEY_M_SECURE;
 		else
-			temp_item->dev = KEY_M_UNKNOW_DEV;
+			temp_item->dev = KEY_M_UNKNOWN_DEV;
 	}
 
 	temp_item->permit = 0;
@@ -172,9 +191,8 @@ static int unifykey_item_parse_dt(struct device_node *node, int id)
 
 	temp_item->attr = 0;
 	ret = of_property_read_string(node, "key-encrypt", &propname);
-	if (ret < 0) {
+	if (ret < 0)
 		goto _next_attr;
-	}
 	if (propname) {
 		if (strcmp(propname, KEY_ATTR_TRUE) == 0)
 			temp_item->attr = KEY_UNIFY_ATTR_ENCRYPT;
@@ -225,7 +243,7 @@ int unifykey_dt_create(struct platform_device *pdev)
 			__LINE__);
 		return ret;
 	}
-	/* set defualt efuse version info */
+	/* set default efuse version info */
 	unify_key_info.efuse_version = -1;
 	of_property_read_u32(pdev->dev.of_node, "efuse-version",
 		&unify_key_info.efuse_version);

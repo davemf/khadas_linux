@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/audiodsp_module.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,19 +13,22 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef AUDIO_DSP_MODULES_H
 #define AUDIO_DSP_MODULES_H
 #include <linux/device.h>
 #include <linux/timer.h>
+#if 0 /* tmp_mask_for_kernel_4_4 */
 #include <linux/wakelock.h>
+#endif
+
 /*
-#include <asm/dsp/audiodsp_control.h>
-#include <asm/dsp/dsp_register.h>
-*/
+ * #include <asm/dsp/audiodsp_control.h>
+ * #include <asm/dsp/dsp_register.h>
+ */
 #include "audiodsp_control.h"
-#include <linux/amlogic/amports/dsp_register.h>
+#include <linux/amlogic/media/sound/dsp_register.h>
 
 #include "codec_message.h"
 #include <linux/dma-mapping.h>
@@ -75,10 +78,12 @@ struct audiodsp_priv {
 	void __iomem *p;
 
 	/* for power management */
+#if 0 /* tmp_mask_for_kernel_4_4 */
 	struct wake_lock wakelock;
-	unsigned dsp_abnormal_count;
-	unsigned last_ablevel;
-	unsigned last_pcmlevel;
+#endif
+	unsigned int dsp_abnormal_count;
+	unsigned int last_ablevel;
+	unsigned int last_pcmlevel;
 };
 
 struct audiodsp_priv *audiodsp_privdata(void);
@@ -86,12 +91,12 @@ struct audiodsp_priv *audiodsp_privdata(void);
 #define DSP_PRNT(fmt, args...)  pr_info("[dsp]" fmt, ##args)
 extern void tsync_pcr_recover(void);
 extern void tsync_pcr_recover(void);
-extern unsigned IEC958_mode_raw;
-extern unsigned IEC958_mode_codec;
+extern unsigned int IEC958_mode_raw;
+extern unsigned int IEC958_mode_codec;
 /*extern int decopt; */
 extern struct audio_info *get_audio_info(void);
 extern void aml_alsa_hw_reprepare(void);
 extern void dsp_get_debug_interface(int flag);
-extern void audiodsp_moniter(unsigned long);
+/* extern void audiodsp_moniter(unsigned long); */
 
 #endif				/*  */

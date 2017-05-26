@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/pcmenc_stream.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
-
+ */
 
 #include "pcmenc_stream.h"
 #include <linux/amlogic/amports/dsp_register.h>
@@ -62,6 +61,7 @@ static inline unsigned long get_write_pointer(void)
 static inline void cache_flush(unsigned int addr, unsigned int size)
 {
 	dma_addr_t buf_map;
+
 	buf_map = dma_map_single(NULL, (void *)addr, size, DMA_TO_DEVICE);
 	dma_unmap_single(NULL, buf_map, size, DMA_TO_DEVICE);
 }
@@ -69,12 +69,14 @@ static inline void cache_invalidate(unsigned int addr,
 					  unsigned int size)
 {
 	dma_addr_t buf_map;
+
 	buf_map = dma_map_single(NULL, (void *)addr, size, DMA_FROM_DEVICE);
 	dma_unmap_single(NULL, buf_map, size, DMA_FROM_DEVICE);
 }
 int pcmenc_stream_space(void)
 {
 	int space;
+
 	log_stream.rpointer = get_read_pointer();
 	log_stream.wpointer = get_write_pointer();
 	if (log_stream.wpointer >= log_stream.rpointer)
@@ -92,6 +94,7 @@ int pcmenc_stream_space(void)
 int pcmenc_stream_content(void)
 {
 	int content;
+
 	log_stream.rpointer = get_read_pointer();
 	log_stream.wpointer = get_write_pointer();
 	if (log_stream.rpointer > log_stream.wpointer)
@@ -111,6 +114,7 @@ static inline int internal_read(char __user *buf, int size, int intact)
 	int len;
 	int content = pcmenc_stream_content();
 	int tail = 0;
+
 	if (intact)
 		len = size > content ? -1 : size;
 	else

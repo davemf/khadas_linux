@@ -21,7 +21,8 @@
 #include <linux/ioctl.h>
 
 /**
- * struct user_logger_entry_compat - defines a single entry that is given to a logger
+ * struct user_logger_entry_compat - defines a single entry that is given
+ * to a logger
  * @len:	The length of the payload
  * @__pad:	Two bytes of padding that appear to be required
  * @pid:	The generating process' process ID

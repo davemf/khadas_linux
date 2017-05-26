@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/pcmenc_stream.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
-
+ */
 
 #ifndef __PCMENC_STREAM_H__
 #define __PCMENC_STREAM_H__
@@ -36,20 +35,20 @@ struct pcm51_encoded_info_t {
 
 /* initialize  stream FIFO
  * return value: on success, zero is returned, on error, -1 is returned
- * */
+ */
 extern int pcmenc_stream_init(void);
 
 /* return space of  stream FIFO, unit:byte
- * */
+ */
 extern int pcmenc_stream_space(void);
 
 /* return content of  stream FIFO, unit:byte
- * */
+ */
 extern int pcmenc_stream_content(void);
 
 /* deinit  stream  FIFO
  * return value: on success, zero is returned, on error, -1 is returned
- * */
+ */
 extern int pcmenc_stream_deinit(void);
 
 /*
@@ -57,7 +56,7 @@ extern int pcmenc_stream_deinit(void);
  * and size will be read, if the FIFO is empty, read will be failed
  * return value: on success, the number of bytes read are returned,
  * othewise, 0 is returned
- * */
+ */
 extern int pcmenc_stream_read(char __user *buffer, int size);
 
 #endif				/*  */

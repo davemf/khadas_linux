@@ -1,9 +1,28 @@
+/*
+ * drivers/amlogic/spicc/spicc.h
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #ifndef __SPICC_H__
 #define __SPICC_H__
 
 #include <linux/amlogic/saradc.h>
 
 #define SPICC_FIFO_SIZE 16
+#define SPICC_DEFAULT_BIT_WIDTH 8
+#define SPICC_DEFAULT_SPEED_HZ 3000000
 
 #define SPICC_REG_RXDATA (0<<2)
 #define SPICC_REG_TXDATA (1<<2)
@@ -15,6 +34,11 @@
 #define SPICC_REG_TEST   (7<<2)
 #define SPICC_REG_DRADDR (8<<2)
 #define SPICC_REG_DWADDR (9<<2)
+#define SPICC_REG_LD_CNTL0 (10<<2)
+#define SPICC_REG_LD_CNTL1 (11<<2)
+#define SPICC_REG_LD_RADDR (12<<2)
+#define SPICC_REG_LD_WADDR (13<<2)
+#define SPICC_REG_ENHANCE_CNTL (14<<2)
 
 #define CON_ENABLE bits_desc(SPICC_REG_CON, 0, 1)
 #define CON_MODE bits_desc(SPICC_REG_CON, 1, 1)
@@ -29,6 +53,7 @@
 #define CON_DATA_RATE_DIV bits_desc(SPICC_REG_CON, 16, 3)
 #define CON_BITS_PER_WORD bits_desc(SPICC_REG_CON, 19, 6)
 #define CON_BURST_LEN bits_desc(SPICC_REG_CON, 25, 7)
+#define BURST_LEN_MAX 128
 
 #define INT_TX_EMPTY_EN bits_desc(SPICC_REG_INT, 0, 1)
 #define INT_TX_HALF_EN bits_desc(SPICC_REG_INT, 1, 1)
@@ -57,7 +82,22 @@
 #define STA_RX_OF bits_desc(SPICC_REG_STA, 6, 1)
 #define STA_XFER_COM bits_desc(SPICC_REG_STA, 7, 1)
 
+#define TX_COUNT bits_desc(SPICC_REG_TEST, 0, 5)
+#define RX_COUNT bits_desc(SPICC_REG_TEST, 5, 5)
+#define DELAY_CONTROL bits_desc(SPICC_REG_TEST, 16, 6)
+#define RX_FIFO_RESET bits_desc(SPICC_REG_TEST, 22, 1)
+#define TX_FIFO_RESET bits_desc(SPICC_REG_TEST, 23, 1)
 #define CLK_FREE_EN bits_desc(SPICC_REG_TEST, 24, 1)
+
+#define CS_DELAY bits_desc(SPICC_REG_ENHANCE_CNTL, 0, 16)
+#define ENHANCE_CLK_DIV bits_desc(SPICC_REG_ENHANCE_CNTL, 16, 8)
+#define ENHANCE_CLK_DIV_SELECT bits_desc(SPICC_REG_ENHANCE_CNTL, 24, 1)
+#define MOSI_OEN bits_desc(SPICC_REG_ENHANCE_CNTL, 25, 1)
+#define CLK_OEN bits_desc(SPICC_REG_ENHANCE_CNTL, 26, 1)
+#define CS_OEN bits_desc(SPICC_REG_ENHANCE_CNTL, 27, 1)
+#define CS_DELAY_EN bits_desc(SPICC_REG_ENHANCE_CNTL, 28, 1)
+#define MAIN_CLK_AO bits_desc(SPICC_REG_ENHANCE_CNTL, 29, 1)
+
 
 struct spicc_platform_data {
 	int device_id;

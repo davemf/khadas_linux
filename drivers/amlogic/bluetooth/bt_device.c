@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/bluetooth/bt_device.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
-
+ */
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -36,9 +35,10 @@
 #ifdef CONFIG_AM_WIFI_SD_MMC
 #include <linux/amlogic/wifi_dt.h>
 #endif
+#include "../../gpio/gpiolib.h"
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
+#ifdef CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND
+#include <linux/amlogic/pm.h>
 static struct early_suspend bt_early_suspend;
 #endif
 
@@ -71,36 +71,78 @@ static void bt_device_deinit(struct bt_dev_data *pdata)
 
 static void bt_device_on(struct bt_dev_data *pdata)
 {
-	if (pdata->gpio_reset > 0)
-		gpio_direction_output(pdata->gpio_reset,
-			pdata->power_low_level);
-	if (pdata->gpio_en > 0)
-		gpio_direction_output(pdata->gpio_en,
-			pdata->power_low_level);
+	if (pdata->gpio_reset > 0) {
+
+		if ((pdata->power_on_pin_OD) && (pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_reset);
+		} else {
+			gpio_direction_output(pdata->gpio_reset,
+				pdata->power_low_level);
+		}
+	}
+	if (pdata->gpio_en > 0) {
+
+		if ((pdata->power_on_pin_OD)
+			&& (pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_en);
+		} else {
+			gpio_direction_output(pdata->gpio_en,
+				pdata->power_low_level);
+		}
+	}
 	msleep(200);
-	if (pdata->gpio_reset > 0)
-		gpio_direction_output(pdata->gpio_reset,
-			!pdata->power_low_level);
-	if (pdata->gpio_en > 0)
-		gpio_direction_output(pdata->gpio_en,
-			!pdata->power_low_level);
+	if (pdata->gpio_reset > 0) {
+
+		if ((pdata->power_on_pin_OD)
+			&& (!pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_reset);
+		} else {
+			gpio_direction_output(pdata->gpio_reset,
+				!pdata->power_low_level);
+		}
+	}
+	if (pdata->gpio_en > 0) {
+
+		if ((pdata->power_on_pin_OD)
+			&& (!pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_en);
+		} else {
+			gpio_direction_output(pdata->gpio_en,
+				!pdata->power_low_level);
+		}
+	}
 	msleep(200);
 }
 
 static void bt_device_off(struct bt_dev_data *pdata)
 {
-	if (pdata->gpio_reset > 0)
-		gpio_direction_output(pdata->gpio_reset,
-			pdata->power_low_level);
-	if (pdata->gpio_en > 0)
-		gpio_direction_output(pdata->gpio_en,
-			pdata->power_low_level);
+	if (pdata->gpio_reset > 0) {
+
+		if ((pdata->power_on_pin_OD)
+			&& (pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_reset);
+		} else {
+			gpio_direction_output(pdata->gpio_reset,
+				pdata->power_low_level);
+		}
+	}
+	if (pdata->gpio_en > 0) {
+
+		if ((pdata->power_on_pin_OD)
+			&& (pdata->power_low_level)) {
+			gpio_direction_input(pdata->gpio_en);
+		} else {
+			gpio_direction_output(pdata->gpio_en,
+				pdata->power_low_level);
+		}
+	}
 	msleep(20);
 }
 
 static int bt_set_block(void *data, bool blocked)
 {
 	struct bt_dev_data *pdata = data;
+
 	pr_info("BT_RADIO going: %s\n", blocked ? "off" : "on");
 
 	if (!blocked) {
@@ -116,17 +158,14 @@ static int bt_set_block(void *data, bool blocked)
 static const struct rfkill_ops bt_rfkill_ops = {
 	.set_block = bt_set_block,
 };
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND
 static void bt_earlysuspend(struct early_suspend *h)
 {
 
-	return;
 }
 
 static void bt_lateresume(struct early_suspend *h)
 {
-
-	return;
 }
 #endif
 
@@ -188,7 +227,13 @@ static int bt_probe(struct platform_device *pdev)
 		} else {
 			pr_info("power on valid level is high");
 			pdata->power_low_level = 0;
+			pdata->power_on_pin_OD = 0;
 		}
+		ret = of_property_read_u32(pdev->dev.of_node,
+		"power_on_pin_OD", &pdata->power_on_pin_OD);
+		if (ret)
+			pdata->power_on_pin_OD = 0;
+		pr_info("bt: power_on_pin_OD = %d;\n", pdata->power_on_pin_OD);
 	}
 #else
 	pdata = (struct bt_dev_data *)(pdev->dev.platform_data);
@@ -208,8 +253,7 @@ static int bt_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_rfk_alloc;
 	}
-	/* if not set false, the bt_set_block will
-	 call when rfkill class resume */
+
 	rfkill_init_sw_state(bt_rfk, false);
 	ret = rfkill_register(bt_rfk);
 	if (ret) {
@@ -218,15 +262,14 @@ static int bt_probe(struct platform_device *pdev)
 	}
 	prdata = kmalloc(sizeof(struct bt_dev_runtime_data),
 	GFP_KERNEL);
-	if (!prdata) {
-		pr_err("bt_dev_runtime_data alloc fail\n");
+
+	if (!prdata)
 		goto err_rfkill;
-	}
 
 	prdata->bt_rfk = bt_rfk;
 	prdata->pdata = pdata;
 	platform_set_drvdata(pdev, prdata);
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND
 	bt_early_suspend.level =
 		EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	bt_early_suspend.suspend = bt_earlysuspend;

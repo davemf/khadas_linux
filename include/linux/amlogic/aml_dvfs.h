@@ -1,7 +1,7 @@
 /*
  * include/linux/amlogic/aml_dvfs.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __AML_DVFS_H__
 #define __AML_DVFS_H__
@@ -43,12 +43,9 @@ struct aml_dvfs_driver {
 	int (*get_voltage)(uint32_t id, uint32_t *uV);
 };
 
-#ifdef CONFIG_AML_DVFS
+#ifdef CONFIG_AMLOGIC_M8B_DVFS
 extern int aml_dvfs_register_driver(struct aml_dvfs_driver *driver);
 extern int aml_dvfs_unregister_driver(struct aml_dvfs_driver *driver);
-extern int aml_dvfs_freq_change(uint32_t id, uint32_t new_freq,
-				uint32_t old_freq, uint32_t flags);
-extern struct cpufreq_frequency_table *aml_dvfs_get_freq_table(unsigned int id);
 #else
 inline int aml_dvfs_register_driver(struct aml_dvfs_driver *driver)
 {
@@ -58,17 +55,6 @@ inline int aml_dvfs_register_driver(struct aml_dvfs_driver *driver)
 inline int aml_dvfs_unregister_driver(struct aml_dvfs_driver *driver)
 {
 	return 0;
-}
-
-inline int aml_dvfs_freq_change(uint32_t id, uint32_t new_freq,
-				uint32_t old_freq, uint32_t flags)
-{
-	return 0;
-}
-
-inline struct cpufreq_frequency_table *aml_dvfs_get_freq_table(unsigned int id)
-{
-	return NULL;
 }
 #endif
 

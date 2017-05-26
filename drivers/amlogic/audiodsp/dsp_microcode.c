@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_microcode.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #include <linux/version.h>
 #include <linux/module.h>
@@ -33,10 +33,12 @@
 #include "dsp_control.h"
 #include "dsp_microcode.h"
 #include <linux/dma-mapping.h>
+
 static int audiodsp_microcode_insert(struct audiodsp_priv *priv,
 				      struct audiodsp_microcode *pmcode)
 {
 	unsigned long flags;
+
 	if (pmcode == NULL)
 		return -1;
 	spin_lock_irqsave(&priv->mcode_lock, flags);
@@ -72,6 +74,7 @@ static struct audiodsp_microcode
 	struct audiodsp_microcode *pmcode = NULL;
 	struct audiodsp_microcode *p = NULL;
 	unsigned long flags;
+
 	spin_lock_irqsave(&priv->mcode_lock, flags);
 	list_for_each_entry(p, &priv->mcode_list, list) {
 		if (memcmp(p->file_name, name, strlen(name)) == 0) {
@@ -88,7 +91,7 @@ int audiodsp_microcode_load(struct audiodsp_priv *priv,
 {
 	const struct firmware *firmware;
 	int err = 0;
-	unsigned dsp_code_text_start = 0;
+	unsigned int dsp_code_text_start = 0;
 
 	priv->micro_dev = device_create(priv->class, NULL,
 			MKDEV(AUDIODSP_MAJOR, 1), NULL, "audiodsp1");
@@ -111,15 +114,15 @@ int audiodsp_microcode_load(struct audiodsp_priv *priv,
 	if (priv->dsp_is_started)
 #ifndef AUDIODSP_RESET
 		/*
-		* after dsp is running,only load from
-		* the text section of the microcode.
-		*/
+		 * after dsp is running,only load from
+		 * the text section of the microcode.
+		 */
 		dsp_code_text_start = 0x1000;
 #else	/*  */
 		dsp_code_text_start = 0;
 
 #endif	/* AUDIODSP_RESET */
-	memcpy((char *)((unsigned)priv->dsp_code_start +
+	memcpy((char *)((unsigned int)priv->dsp_code_start +
 			dsp_code_text_start),
 		(char *)firmware->data + dsp_code_text_start,
 		firmware->size - dsp_code_text_start);
@@ -140,6 +143,7 @@ int audiodsp_microcode_register(struct audiodsp_priv *priv, int fmt,
 {
 	struct audiodsp_microcode *pmcode;
 	int len;
+
 	pmcode = audiodsp_find_mcode_by_name(priv, filename);
 	if (pmcode != NULL && (fmt & pmcode->fmt)) {
 		DSP_PRNT("Have register the firmware code before=%s\n",
@@ -151,7 +155,8 @@ int audiodsp_microcode_register(struct audiodsp_priv *priv, int fmt,
 		memcpy(pmcode->file_name, filename, len);
 		pmcode->file_name[len] = '\0';
 		return pmcode->id;
-	} else {
+	}
+	{
 		pmcode =
 			kmalloc(sizeof(struct audiodsp_microcode), GFP_KERNEL);
 		if (pmcode == NULL)
@@ -175,6 +180,7 @@ int audiodsp_microcode_free(struct audiodsp_priv *priv)
 	unsigned long flags;
 	struct audiodsp_microcode *pmcode;
 	struct list_head *list, *head;
+
 	local_irq_save(flags);
 	head = &priv->mcode_list;
 	while (!list_empty(head)) {

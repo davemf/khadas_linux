@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/pcmenc_module.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
+
 #define pr_fmt(fmt) "audio_dsp: " fmt
 
 #include <linux/kernel.h>
@@ -53,8 +54,10 @@ static int audiodsp_pcmenc_destroy_stream_buffer(void);
 static int major;
 static struct class *class_pcmenc;
 static struct device *dev_pcmenc;
-static int device_opened;	/* Is device open?
-				 * Used to prevent multiple access to device */
+/* Is device open?
+ * Used to prevent multiple access to device
+ */
+static int device_opened;
 static pcm51_encoded_info_t pcminfo = { 0 };
 
 struct priv_data_t {
@@ -72,6 +75,7 @@ static ssize_t pcmenc_ptr_show(struct class *class,
 				struct class_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
+
 	ret = sprintf(buf, "pcmenc runtime info:\n"
 		"  pcmenc rd ptr :\t%lx\n"
 		"  pcmenc wr ptr :\t%lx\n"
@@ -90,6 +94,7 @@ static struct class_attribute pcmenc_attrs[] = {
 static void create_pcmenc_attrs(struct class *class)
 {
 	int i = 0, ret;
+
 	for (i = 0; pcmenc_attrs[i].attr.name; i++)
 		ret = class_create_file(class, &pcmenc_attrs[i]);
 }
@@ -97,6 +102,7 @@ static void create_pcmenc_attrs(struct class *class)
 static void remove_amaudio_attrs(struct class *class)
 {
 	int i = 0;
+
 	for (i = 0; pcmenc_attrs[i].attr.name; i++)
 		class_remove_file(class, &pcmenc_attrs[i]);
 }
@@ -114,11 +120,11 @@ static int __init audiodsp_pcmenc_init_module(void)
 {
 	void *ptr_err;
 	int ret = 0;
+
 	major = register_chrdev(0, DEVICE_NAME, &fops);
 
 	if (major < 0) {
-		pr_info(KERN_ALERT
-			"Registering char device %s failed with %d\n",
+		pr_info("Registering char device %s failed with %d\n",
 			DEVICE_NAME, major);
 		return major;
 	}
@@ -142,7 +148,7 @@ static int __init audiodsp_pcmenc_init_module(void)
 	if (ret)
 		goto err2;
 
-	pr_info(KERN_INFO "amlogic audio dsp pcmenc device init!\n");
+	pr_info("amlogic audio dsp pcmenc device init!\n");
 
 	return SUCCESS;
 err2:
@@ -208,6 +214,7 @@ static ssize_t audiodsp_pcmenc_read(struct file *filp, char __user *buffer,
 #if 1
 	int bytes_read = 0;
 	int len = 0;
+
 	if (buffer == NULL)
 		return 0;
 
@@ -216,7 +223,7 @@ static ssize_t audiodsp_pcmenc_read(struct file *filp, char __user *buffer,
 	return bytes_read;
 
 #else				/*  */
-	pr_info(KERN_ALERT "Sorry, read operation isn't supported.\n");
+	pr_info("Sorry, read operation isn't supported.\n");
 	return -EINVAL;
 #endif				/*  */
 	return length;
@@ -225,7 +232,7 @@ static ssize_t audiodsp_pcmenc_read(struct file *filp, char __user *buffer,
 static ssize_t audiodsp_pcmenc_write(struct file *filp, const char *buff,
 					size_t len, loff_t *off)
 {
-	pr_info(KERN_ALERT "Sorry, this operation isn't supported.\n");
+	pr_info("Sorry, this operation isn't supported.\n");
 	return -EINVAL;
 }
 
@@ -233,7 +240,7 @@ static int audiodsp_pcmenc_mmap(struct file *filp,
 				 struct vm_area_struct *vma)
 {
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
-	unsigned vm_size = vma->vm_end - vma->vm_start;
+	unsigned int vm_size = vma->vm_end - vma->vm_start;
 
 	if (vm_size == 0)
 		return -EAGAIN;
@@ -253,6 +260,7 @@ static long audiodsp_pcmenc_ioctl(struct file *file, unsigned int cmd,
 				   unsigned long args)
 {
 	int ret = 0;
+
 	switch (cmd) {
 	case AUDIODSP_PCMENC_GET_RING_BUF_SIZE:
 		put_user(priv_data.stream_buffer_size, (__u64 __user *) args);
@@ -267,17 +275,17 @@ static long audiodsp_pcmenc_ioctl(struct file *file, unsigned int cmd,
 		priv_data.user_read_offset = (unsigned long)args;
 
 		/*
-		* pr_info("dsp rd ptr %x\n",
-		* DSP_RD(DSP_DECODE_51PCM_OUT_RD_ADDR));
-		*/
+		 * pr_info("dsp rd ptr %x\n",
+		 * DSP_RD(DSP_DECODE_51PCM_OUT_RD_ADDR));
+		 */
 		DSP_WD(DSP_DECODE_51PCM_OUT_RD_ADDR,
 			ARM_2_ARC_ADDR_SWAP(priv_data.stream_buffer_start +
 				priv_data.user_read_offset));
 
 		/*
-		* pr_info("dsp rd ptr change to %x\n",
-		* DSP_RD(DSP_DECODE_51PCM_OUT_RD_ADDR));
-		*/
+		 * pr_info("dsp rd ptr change to %x\n",
+		 * DSP_RD(DSP_DECODE_51PCM_OUT_RD_ADDR));
+		 */
 		break;
 	case AUDIODSP_PCMENC_GET_PCMINFO:
 		if (args == 0) {
@@ -356,9 +364,9 @@ static int audiodsp_pcmenc_create_stream_buffer(void)
 	DSP_WD(DSP_DECODE_51PCM_OUT_WD_ADDR,
 		ARM_2_ARC_ADDR_SWAP(priv_data.stream_buffer_start));
 	pr_info("DSP pcmenc stream buffer to [%#lx-%#lx]\n",
-		(long unsigned int)
+		(unsigned long int)
 		ARM_2_ARC_ADDR_SWAP(priv_data.stream_buffer_start),
-		(long unsigned int)
+		(unsigned long int)
 		ARM_2_ARC_ADDR_SWAP(priv_data.stream_buffer_end));
 	return 0;
 }
@@ -380,12 +388,12 @@ void set_pcminfo_data(void *pcm_encoded_info)
 	dma_addr_t buf_map;
 
 	/*
-	* as this ptr got from arc dsp side,
-	* which mapping to 0 address,
-	* so add this dsp start offset
-	*/
+	 * as this ptr got from arc dsp side,
+	 * which mapping to 0 address,
+	 * so add this dsp start offset
+	 */
 	pcm51_encoded_info_t *info =
-		(pcm51_encoded_info_t *) ((unsigned)pcm_encoded_info +
+		(pcm51_encoded_info_t *) ((unsigned int)pcm_encoded_info +
 				AUDIO_DSP_START_ADDR);
 
 	/* inv dcache as this data from device */

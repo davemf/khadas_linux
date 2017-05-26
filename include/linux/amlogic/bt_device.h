@@ -1,7 +1,7 @@
 /*
  * include/linux/amlogic/bt_device.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __PLAT_MESON_BT_DEVICE_H
 #define __PLAT_MESON_BT_DEVICE_H
@@ -22,6 +22,7 @@ struct bt_dev_data {
 	int gpio_reset;
 	int gpio_en;
 	int power_low_level;
+	int power_on_pin_OD;
 };
 
 #endif

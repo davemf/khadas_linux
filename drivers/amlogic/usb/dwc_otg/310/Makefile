@@ -30,4 +30,4 @@ $(DWC_OTG_NAME)-objs	+= dwc_otg_cfi.o
 endif
 $(DWC_OTG_NAME)-objs	+= $(COMMON_PORT)/dwc_common_linux.o
 
-obj-$(CONFIG_USB_DWC_OTG_HCD)	+= $(DWC_OTG_NAME).o
+obj-$(CONFIG_AMLOGIC_USB_DWC_OTG_HCD)	+= $(DWC_OTG_NAME).o

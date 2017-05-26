@@ -107,18 +107,23 @@ extern long __put_user_asm_w(unsigned int x, void __user *addr);
 extern long __put_user_asm_d(unsigned int x, void __user *addr);
 extern long __put_user_asm_l(unsigned long long x, void __user *addr);
 
-#define __put_user_size(x, ptr, size, retval)			\
-do {                                                            \
-	retval = 0;                                             \
-	switch (size) {                                         \
+#define __put_user_size(x, ptr, size, retval)				\
+do {                                                                    \
+	retval = 0;                                                     \
+	switch (size) {                                                 \
 	case 1:								\
-		retval = __put_user_asm_b((unsigned int)x, ptr); break;	\
+		retval = __put_user_asm_b((__force unsigned int)x, ptr);\
+		break;							\
 	case 2:								\
-		retval = __put_user_asm_w((unsigned int)x, ptr); break;	\
+		retval = __put_user_asm_w((__force unsigned int)x, ptr);\
+		break;							\
 	case 4:								\
-		retval = __put_user_asm_d((unsigned int)x, ptr); break;	\
+		retval = __put_user_asm_d((__force unsigned int)x, ptr);\
+		break;							\
 	case 8:								\
-		retval = __put_user_asm_l((unsigned long long)x, ptr); break; \
+		retval = __put_user_asm_l((__force unsigned long long)x,\
+					  ptr);				\
+		break;							\
 	default:							\
 		__put_user_bad();					\
 	}								\
@@ -135,7 +140,7 @@ extern long __get_user_bad(void);
 ({                                                              \
 	long __gu_err, __gu_val;                                \
 	__get_user_size(__gu_val, (ptr), (size), __gu_err);	\
-	(x) = (__typeof__(*(ptr)))__gu_val;                     \
+	(x) = (__force __typeof__(*(ptr)))__gu_val;             \
 	__gu_err;                                               \
 })
 
@@ -145,7 +150,7 @@ extern long __get_user_bad(void);
 	const __typeof__(*(ptr)) __user *__gu_addr = (ptr);		\
 	if (access_ok(VERIFY_READ, __gu_addr, size))			\
 		__get_user_size(__gu_val, __gu_addr, (size), __gu_err);	\
-	(x) = (__typeof__(*(ptr)))__gu_val;                             \
+	(x) = (__force __typeof__(*(ptr)))__gu_val;                     \
 	__gu_err;                                                       \
 })
 
@@ -192,19 +197,21 @@ extern long __must_check strnlen_user(const char __user *src, long count);
 
 #define strlen_user(str) strnlen_user(str, 32767)
 
-extern unsigned long __must_check __copy_user_zeroing(void *to,
-						      const void __user *from,
-						      unsigned long n);
+extern unsigned long raw_copy_from_user(void *to, const void __user *from,
+					unsigned long n);
 
 static inline unsigned long
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	if (access_ok(VERIFY_READ, from, n))
-		return __copy_user_zeroing(to, from, n);
-	return n;
+	unsigned long res = n;
+	if (likely(access_ok(VERIFY_READ, from, n)))
+		res = raw_copy_from_user(to, from, n);
+	if (unlikely(res))
+		memset(to + (n - res), 0, res);
+	return res;
 }
 
-#define __copy_from_user(to, from, n) __copy_user_zeroing(to, from, n)
+#define __copy_from_user(to, from, n) raw_copy_from_user(to, from, n)
 #define __copy_from_user_inatomic __copy_from_user
 
 extern unsigned long __must_check __copy_user(void __user *to,

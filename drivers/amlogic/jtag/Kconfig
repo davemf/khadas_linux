@@ -3,7 +3,7 @@
 #
 
 menuconfig AMLOGIC_JTAG
-	boolean "JTAG Support"
+	bool "Amlogic JTAG Support"
 	default n
 	help
 		Say Y here to enable jtag support.
@@ -13,8 +13,8 @@ menuconfig AMLOGIC_JTAG
 
 if AMLOGIC_JTAG
 
-config	AML_JTAG_SETUP
-	boolean "jtag setup with uboot parameter"
+config	AMLOGIC_JTAG_MESON
+	bool "meson jtag setup driver"
 	default n
 	help
 		This option enables support jtag setup.

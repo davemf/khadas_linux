@@ -1,6 +1,3 @@
-#
-#Makefile for the gpio dirver
-#
-obj-$(CONFIG_M8M2_SUSPEND)+= m8m2_pm.o
-obj-$(CONFIG_GXBB_SUSPEND)+= gxbb_pm.o
-
+obj-$(CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND) += lgcy_early_suspend.o
+obj-$(CONFIG_AMLOGIC_GX_SUSPEND) += gx_pm.o
+obj-$(CONFIG_AMLOGIC_M8B_SUSPEND) += m8b_pm.o

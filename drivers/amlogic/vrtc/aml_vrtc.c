@@ -1,7 +1,7 @@
 /*
- * drivers/amlogic/rtc/aml_vrtc.c
+ * drivers/amlogic/vrtc/aml_vrtc.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
-
+ */
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -25,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/amlogic/cpu_version.h>
 #include <linux/pm_wakeup.h>
+#include <linux/amlogic/scpi_protocol.h>
 
 static void __iomem *alarm_reg_vaddr;
 static void __iomem *tel_reg_vaddr, *teh_reg_vaddr;
@@ -37,6 +37,7 @@ static int parse_init_date(const char *date)
 	char *year_s, *month_s, *day_s, *str;
 	unsigned int year_d, month_d, day_d;
 	int ret;
+
 	if (strlen(date) != 10)
 		return -1;
 	memset(local_str, 0, TIME_LEN + 1);
@@ -67,7 +68,9 @@ static u32 read_te(void)
 {
 	u32 time;
 	unsigned long te = 0;
+
 	time = 0;
+
 	if (tel_reg_vaddr && teh_reg_vaddr) {
 		te = readl(teh_reg_vaddr);
 		te <<= 32;
@@ -113,6 +116,7 @@ static int aml_rtc_write_time(struct device *dev, struct rtc_time *tm)
 static int set_wakeup_time(unsigned long time)
 {
 	int ret = -1;
+
 	if (alarm_reg_vaddr) {
 		writel(time, alarm_reg_vaddr);
 		ret = 0;
@@ -160,6 +164,7 @@ static int aml_vrtc_probe(struct platform_device *pdev)
 	int ret;
 	u32 paddr = 0;
 	const char *str;
+	u32 vrtc_val;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 			"alarm_reg_addr", &paddr);
@@ -181,7 +186,11 @@ static int aml_vrtc_probe(struct platform_device *pdev)
 	ret = of_property_read_string(pdev->dev.of_node, "init_date", &str);
 	if (!ret) {
 		pr_debug("init_date: %s\n", str);
-		parse_init_date(str);
+		if (!scpi_get_vrtc(&vrtc_val)) {
+			vrtc_init_date = vrtc_val;
+			pr_debug("get vrtc: %us\n", vrtc_init_date);
+		} else
+			parse_init_date(str);
 	}
 	device_init_wakeup(&pdev->dev, 1);
 	vrtc = rtc_device_register("aml_vrtc", &pdev->dev,
@@ -196,16 +205,53 @@ static int aml_vrtc_probe(struct platform_device *pdev)
 static int aml_vrtc_remove(struct platform_device *dev)
 {
 	struct rtc_device *vrtc = platform_get_drvdata(dev);
+
 	rtc_device_unregister(vrtc);
 
 	return 0;
 }
 
-int aml_vrtc_resume(struct platform_device *pdev)
+static int aml_vrtc_resume(struct platform_device *pdev)
 {
 	set_wakeup_time(0);
+
+	/* If timeE < 20, EE domain is thutdown,	timerE is not
+	 * work during suspend. we need get vrtc value.
+	 */
+	if (read_te() < 20)
+		if (!scpi_get_vrtc(&vrtc_init_date))
+			pr_debug("get vrtc: %us\n", vrtc_init_date);
+
 	return 0;
 }
+
+static int aml_vrtc_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	u32 vrtc_val;
+
+	vrtc_val = read_te();
+
+	if (scpi_set_vrtc(vrtc_val))
+		pr_debug("vrtc setting fail.\n");
+
+	return 0;
+}
+
+
+static void aml_vrtc_shutdown(struct platform_device *pdev)
+{
+	u32 vrtc_val;
+	struct timespec	new_system;
+
+	vrtc_val = read_te();
+	getnstimeofday(&new_system);
+
+	vrtc_val = (u32)new_system.tv_sec;
+
+	if (scpi_set_vrtc(vrtc_val))
+		pr_debug("vrtc setting fail.\n");
+}
+
 
 static const struct of_device_id aml_vrtc_dt_match[] = {
 	{ .compatible = "amlogic, aml_vrtc"},
@@ -221,6 +267,8 @@ struct platform_driver aml_vrtc_driver = {
 	.probe = aml_vrtc_probe,
 	.remove = aml_vrtc_remove,
 	.resume = aml_vrtc_resume,
+	.suspend = aml_vrtc_suspend,
+	.shutdown = aml_vrtc_shutdown,
 };
 
 static int  __init aml_vrtc_init(void)

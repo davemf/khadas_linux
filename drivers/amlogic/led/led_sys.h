@@ -1,8 +1,7 @@
 /*
  * drivers/amlogic/led/led_sys.h
  *
- *
- * Copyright (C) 2016 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __AML_LED_SYS_H
 #define __AML_LED_SYS_H

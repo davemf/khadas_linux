@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_codec.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
+
 #define pr_fmt(fmt) "audio_dsp: " fmt
 
 #include <linux/module.h>
@@ -51,6 +52,7 @@ int dsp_codec_get_bufer_data_len(struct audiodsp_priv *priv)
 #define REVERSD_BYTES   32
 #define CACHE_ALIGNED(x)    (x&(~0x1f))
 	unsigned long rp, wp, len, flags;
+
 	local_irq_save(flags);
 	rp = dsp_codec_get_rd_addr(priv);
 	wp = dsp_codec_get_wd_addr(priv);
@@ -89,6 +91,7 @@ int dsp_codec_get_bufer_data_len1(struct audiodsp_priv *priv,
 unsigned long dsp_codec_inc_rd_addr(struct audiodsp_priv *priv, int size)
 {
 	unsigned long rd, flags;
+
 	local_irq_save(flags);
 	rd = dsp_codec_get_rd_addr(priv);
 	rd = rd + size;

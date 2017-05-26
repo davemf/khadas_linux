@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/spdif_module.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
+
 #define pr_fmt(fmt) "audio_dsp: " fmt
 
 #include <linux/kernel.h>
@@ -36,7 +37,7 @@ static int major_spdif;
 static struct class *class_spdif;
 static struct device *dev_spdif;
 static struct mutex mutex_spdif;
-static unsigned iec958_wr_offset;
+static unsigned int iec958_wr_offset;
 
 static inline int if_audio_output_iec958_enable(void)
 {
@@ -48,7 +49,7 @@ static inline int if_audio_output_i2s_enable(void)
 	return aml_read_cbus(AIU_MEM_I2S_CONTROL) && (0x3 << 1);
 }
 
-static inline void audio_output_iec958_enable(unsigned flag)
+static inline void audio_output_iec958_enable(unsigned int flag)
 {
 	if (flag) {
 		aml_write_cbus(AIU_958_FORCE_LEFT, 0);
@@ -74,7 +75,7 @@ static int audio_spdif_open(struct inode *inode, struct file *file)
 
 static int audio_spdif_release(struct inode *inode, struct file *file)
 {
-	/* audio_enable_ouput(0); */
+	/* audio_enable_output(0); */
 	/* audio_output_iec958_enable(0); */
 	aml_alsa_hw_reprepare();
 	device_opened--;
@@ -88,6 +89,7 @@ static long audio_spdif_ioctl(struct file *file, unsigned int cmd,
 {
 	int err = 0;
 	int tmp = 0;
+
 	mutex_lock(&mutex_spdif);
 	switch (cmd) {
 	case AUDIO_SPDIF_GET_958_BUF_RD_OFFSET:
@@ -118,7 +120,7 @@ static long audio_spdif_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_SPDIF_SET_958_ENABLE:
 
 		/* IEC958_mode_raw = 1; */
-		/* audio_enable_ouput(1); */
+		/* audio_enable_output(1); */
 		audio_output_iec958_enable(args);
 		break;
 	case AUDIO_SPDIF_SET_958_INIT_PREPARE:
@@ -145,6 +147,7 @@ static ssize_t audio_spdif_write(struct file *file,
 	char *wr_ptr;
 	unsigned long wr_addr;
 	dma_addr_t buf_map;
+
 	wr_addr = aml_read_cbus(AIU_MEM_IEC958_START_PTR) + iec958_wr_offset;
 	wr_ptr = (char *)phys_to_virt(wr_addr);
 	if (copy_from_user((void *)wr_ptr, (void *)userbuf, len) != 0) {
@@ -166,7 +169,8 @@ static ssize_t audio_spdif_read(struct file *filp, char __user *buffer,
 static int audio_spdif_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
-	unsigned vm_size = vma->vm_end - vma->vm_start;
+	unsigned int vm_size = vma->vm_end - vma->vm_start;
+
 	if (vm_size == 0) {
 		pr_info("audio spdif:vm_size 0\n");
 		return -EAGAIN;
@@ -195,6 +199,7 @@ static ssize_t audio_spdif_ptr_show(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
+
 	ret = sprintf(buf, "iec958 buf runtime info:\n"
 		"  iec958 rd ptr :\t%x\n"
 		"  iec958 wr ptr :\t%x\n",
@@ -208,8 +213,9 @@ static ssize_t audio_spdif_buf_show(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
-	unsigned *ptr =
-		(unsigned *)phys_to_virt(aml_read_cbus(AIU_MEM_IEC958_RD_PTR) +
+	unsigned int *ptr =
+		(unsigned int *)phys_to_virt(
+				aml_read_cbus(AIU_MEM_IEC958_RD_PTR) +
 				iec958_wr_offset);
 	ret =
 		sprintf(buf,
@@ -237,6 +243,7 @@ static const struct file_operations fops_spdif = {
 static void create_audio_spdif_attrs(struct class *class)
 {
 	int i = 0, ret;
+
 	for (i = 0; audio_spdif_attrs[i].attr.name; i++)
 		ret = class_create_file(class, &audio_spdif_attrs[i]);
 }
@@ -244,6 +251,7 @@ static void create_audio_spdif_attrs(struct class *class)
 static int __init audio_spdif_init_module(void)
 {
 	void *ptr_err;
+
 	major_spdif = register_chrdev(0, DEVICE_NAME, &fops_spdif);
 	if (major_spdif < 0) {
 		pr_info("Registering spdif char device %s failed with %d\n",
@@ -283,7 +291,6 @@ static void __exit audio_spdif_exit_module(void)
 	device_destroy(class_spdif, MKDEV(major_spdif, 0));
 	class_destroy(class_spdif);
 	unregister_chrdev(major_spdif, DEVICE_NAME);
-	return;
 }
 
 module_init(audio_spdif_init_module);

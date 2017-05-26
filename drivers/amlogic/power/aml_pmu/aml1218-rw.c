@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/power/aml_pmu/aml1218-rw.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -35,19 +35,9 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/input.h>
-#include <linux/amlogic/aml_rtc.h>
 #include <linux/amlogic/aml_pmu.h>
 
 #define MAX_BUF		100
-#define CHECK_DRIVER()	\
-do { \
-	if (!g_aml1218_client) { \
-		AML1218_DBG("driver is not ready right now, wait...\n"); \
-		dump_stack(); \
-		return -ENODEV; \
-	} \
-} while (0)
-
 #define DEBUG_DVFS	0
 
 int aml1218_write(int32_t add, uint8_t val)
@@ -64,7 +54,6 @@ int aml1218_write(int32_t add, uint8_t val)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;
@@ -93,7 +82,6 @@ int aml1218_write16(int32_t add, uint16_t val)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;
@@ -123,7 +111,6 @@ int aml1218_writes(int32_t add, uint8_t *buff, int len)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;
@@ -158,7 +145,6 @@ int aml1218_read(int add, uint8_t *val)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;
@@ -192,7 +178,6 @@ int aml1218_read16(int add, uint16_t *val)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;
@@ -226,7 +211,6 @@ int aml1218_reads(int add, uint8_t *buff, int len)
 		}
 	};
 
-	CHECK_DRIVER();
 	pdev = g_aml1218_client;
 
 	buf[0] = add & 0xff;

@@ -1,3 +1,20 @@
+/*
+ * include/linux/amlogic/security_key.h
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #ifndef _AML_SECURITY_KEY_H_
 #define _AML_SECURITY_KEY_H_
 
@@ -17,5 +34,7 @@ int32_t secure_storage_query(uint8_t *keyname, uint32_t *retval);
 int32_t secure_storage_tell(uint8_t *keyname, uint32_t *retval);
 int32_t secure_storage_status(uint8_t *keyname, uint32_t *retval);
 void *secure_storage_getbuffer(uint32_t *size);
-
+int32_t secure_storage_set_enctype(uint32_t type);
+int32_t secure_storage_get_enctype(void);
+int32_t secure_storage_version(void);
 #endif

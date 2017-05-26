@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/mmc/emmc_key.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __EMMC_KEY_H__
 #define __EMMC_KEY_H__
@@ -22,21 +22,12 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/core.h>
-#include <linux/amlogic/securitykey.h>
-
-/* #define EMMC_KEY_KERNEL */
-/* #define EMMC_KEY_UBOOT */
-
 
 #define EMMC_KEY_AREA_SIGNAL		"emmckeys"
 #define EMMC_KEY_AREA_SIGNAL_LEN	16
 
 #define EMMC_KEYAREA_SIZE		(128*1024)
 #define EMMC_KEYAREA_COUNT		2
-
-
-/* #define KEY_PREVIOUS_PARTITION	"boot_env" */
-/* #define KEY_LATER_PARTITION		"logo" */
 
 /* we store partition table in the previous 16KB space */
 #define EMMCKEY_RESERVE_OFFSET          0x4000
@@ -75,9 +66,9 @@ struct emmckey_data_t {
 int emmc_key_init(struct mmc_card *card);
 
 int32_t emmc_key_read(uint8_t *buffer,
-	uint32_t length, uint32_t *actual_lenth);
+	uint32_t length, uint32_t *actual_length);
 int32_t emmc_key_write(uint8_t *buffer,
-	uint32_t length, uint32_t *actual_lenth);
+	uint32_t length, uint32_t *actual_length);
 
 #endif
 

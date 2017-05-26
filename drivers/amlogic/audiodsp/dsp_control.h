@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_control.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef DSP_CONTROL_HEADER
 #define DSP_CONTROL_HEADER
@@ -30,9 +30,9 @@ int dsp_start(struct audiodsp_priv *priv, struct audiodsp_microcode *mcode);
 int dsp_stop(struct audiodsp_priv *priv);
 int dsp_check_status(struct audiodsp_priv *priv);
 
-extern unsigned IEC958_mode_raw;
-extern unsigned IEC958_mode_codec;
-extern unsigned audioin_mode;
+extern unsigned int IEC958_mode_raw;
+extern unsigned int IEC958_mode_codec;
+extern unsigned int audioin_mode;
 
 #define AUDIODSP_RESET
 #endif				/*  */

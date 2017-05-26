@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_control.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
+
 #define pr_fmt(fmt) "audio_dsp: " fmt
 
 #include <linux/module.h>
@@ -43,7 +44,7 @@
 #define MAX_STREAM_BUF_MEM_SIZE  (32*1024)
 
 int decopt = 0x0000fffb;
-int subid = 0x0;
+int subid;
 
 #define RESET_AUD_ARC	(1<<13)
 static void enable_dsp(int flag)
@@ -77,10 +78,12 @@ static void enable_dsp(int flag)
 void halt_dsp(struct audiodsp_priv *priv)
 {
 	int i = 0;
-	if (DSP_RD(DSP_STATUS) == DSP_STATUS_RUNING) {
+
+	if (DSP_RD(DSP_STATUS) == DSP_STATUS_RUNNING) {
 
 #ifndef AUDIODSP_RESET
 		int i;
+
 		dsp_mailbox_send(priv, 1, M2B_IRQ0_DSP_SLEEP, 0, 0, 0);
 		for (i = 0; i < 100; i++) {
 			if (DSP_RD(DSP_STATUS) == DSP_STATUS_SLEEP)
@@ -104,7 +107,7 @@ void halt_dsp(struct audiodsp_priv *priv)
 #endif				/*  */
 	}
 #ifdef AUDIODSP_RESET
-	if (DSP_RD(DSP_STATUS) != DSP_STATUS_RUNING) {
+	if (DSP_RD(DSP_STATUS) != DSP_STATUS_RUNNING) {
 		DSP_WD(DSP_STATUS, DSP_STATUS_HALT);
 		return;
 	}
@@ -160,12 +163,12 @@ void reset_dsp(struct audiodsp_priv *priv)
 		DSP_WD(DSP_STATUS, DSP_STATUS_WAKEUP);
 		udelay(1000);	/*waiting arc625 run again */
 	}
-	return;
 }
 
 static inline int dsp_set_stack(struct audiodsp_priv *priv)
 {
 	dma_addr_t buf_map;
+
 	if (priv->dsp_stack_start == NULL)
 		priv->dsp_stack_start =
 			kzalloc(priv->dsp_stack_size, GFP_KERNEL);
@@ -214,6 +217,7 @@ static inline int dsp_set_stack(struct audiodsp_priv *priv)
 static inline int dsp_set_heap(struct audiodsp_priv *priv)
 {
 	dma_addr_t buf_map;
+
 	if (priv->dsp_heap_size == 0)
 		return 0;
 	if (priv->dsp_heap_start == 0)
@@ -243,6 +247,7 @@ static inline int dsp_set_heap(struct audiodsp_priv *priv)
 static inline int dsp_set_stream_buffer(struct audiodsp_priv *priv)
 {
 	dma_addr_t buf_map;
+
 	if (priv->stream_buffer_mem_size == 0) {
 		DSP_WD(DSP_DECODE_OUT_START_ADDR, 0);
 		DSP_WD(DSP_DECODE_OUT_END_ADDR, 0);
@@ -300,6 +305,7 @@ int dsp_start(struct audiodsp_priv *priv, struct audiodsp_microcode *mcode)
 {
 	int i;
 	int res;
+
 	mutex_lock(&priv->dsp_mutex);
 	halt_dsp(priv);
 
@@ -332,7 +338,7 @@ int dsp_start(struct audiodsp_priv *priv, struct audiodsp_microcode *mcode)
 	}
 	priv->dsp_start_time = jiffies;
 	for (i = 0; i < 1000; i++) {
-		if (DSP_RD(DSP_STATUS) == DSP_STATUS_RUNING)
+		if (DSP_RD(DSP_STATUS) == DSP_STATUS_RUNNING)
 			break;
 		udelay(1000);
 	}
@@ -382,10 +388,11 @@ int dsp_stop(struct audiodsp_priv *priv)
 int dsp_check_status(struct audiodsp_priv *priv)
 {
 
-	/* unsigned dsp_halt_score = 0; */
-	unsigned ablevel = 0;
+	/* unsigned int dsp_halt_score = 0; */
+	unsigned int ablevel = 0;
 	int pcmlevel = 0;
-	if (DSP_RD(DSP_STATUS) != DSP_STATUS_RUNING)
+
+	if (DSP_RD(DSP_STATUS) != DSP_STATUS_RUNNING)
 		return 1;
 	ablevel = aml_read_cbus(AIU_MEM_AIFIFO_LEVEL);
 	pcmlevel = dsp_codec_get_bufer_data_len(priv);
@@ -411,7 +418,7 @@ int dsp_check_status(struct audiodsp_priv *priv)
 		     00:  AIU 958 hw search raw mode
 		     01:  PCM_RAW mode,the same as AC3/AC3+
  *    bit 3:4 - used for the communication of dsp and player
-			tansfer decoding infomation:
+			tansfer decoding information:
  *                00: used for libplayer_end to tell dsp_end that
 				the file end has been notreached;
  *                01: used for libplayer_end to tell dsp_end that
@@ -423,10 +430,11 @@ int dsp_check_status(struct audiodsp_priv *priv)
  *	bit 2 - ARC DSP print flag
  *	bit 1  - dts decoder policy select: 0:mute 1:noise
  *	bit 0  - dd/dd+	decoder policy select  0:mute 1:noise
- * */
+ */
 static int __init decode_option_setup(char *s)
 {
 	unsigned long value = 0xffffffffUL;
+
 	if (kstrtoul(s, 16, &value)) {
 		decopt = 0x0000fffb;
 		return -1;
@@ -439,6 +447,7 @@ __setup("decopt=", decode_option_setup);
 static int __init decode_subid_setup(char *s)
 {
 	unsigned long value = (unsigned long)(0);
+
 	if (kstrtoul(s, 16, &value)) {
 		subid = (unsigned long)(0);
 		return -1;

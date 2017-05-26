@@ -1,3 +1,20 @@
+/*
+ * drivers/amlogic/wifi/dhd_static_buf.c
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #define pr_fmt(fmt)	"Wifi: %s: " fmt, __func__
 
 #include <linux/module.h>
@@ -182,3 +199,6 @@ static int __init bcmdhd_wlan_init(void)
 
 device_initcall(bcmdhd_wlan_init);
 #endif
+MODULE_DESCRIPTION("Amlogic S912/wifi driver");
+MODULE_AUTHOR("Kevin Hilman <khilman@baylibre.com>");
+MODULE_LICENSE("GPL")

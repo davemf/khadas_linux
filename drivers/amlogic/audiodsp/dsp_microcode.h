@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_microcode.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef AUDIODSP_MICROCODE_HEADER
 #define AUDIODSP_MICROCODE_HEADER

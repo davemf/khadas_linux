@@ -7,8 +7,7 @@ menu "AMLOGIC SPI Hardware bus support"
 
 config AMLOGIC_SPICC_MASTER
 	tristate "AMLOGIC SPICC MASTER SUPPORT"
-
-	select SPI
+	default n
 	help
 		This is amlogic SPICC hardware bus master.
 		This driver can also be built as a module.

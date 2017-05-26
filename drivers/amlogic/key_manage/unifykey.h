@@ -1,3 +1,20 @@
+/*
+ * drivers/amlogic/key_manage/unifykey.h
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #ifndef __UNIFYKEY_MANAGE_H__
 #define __UNIFYKEY_MANAGE_H__
 
@@ -12,7 +29,7 @@
 /* need query! */
 
 enum key_manager_dev_e {
-		KEY_M_UNKNOW_DEV = 0,
+		KEY_M_UNKNOWN_DEV = 0,
 		KEY_M_EFUSE,
 		KEY_M_NORMAL,/*include general key(nand key,emmc key)*/
 		KEY_M_SECURE,
@@ -31,7 +48,7 @@ enum key_manager_flag_e {
 	KEY_M_FLAG_EXSIT = (1<<0),
 };
 #define KEY_UNIFY_NAME_LEN	48
-/* for ioctrl transfer paramters. */
+/* for ioctrl transfer parameters. */
 struct key_item_info_t {
 	unsigned int id;
 	char name[KEY_UNIFY_NAME_LEN];

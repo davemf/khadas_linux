@@ -1,4 +1,4 @@
 #
 #Makefile for the vrtc dirver
 #
-obj-$(CONFIG_AML_VRTC) += aml_vrtc.o
+obj-$(CONFIG_AMLOGIC_VRTC) += aml_vrtc.o

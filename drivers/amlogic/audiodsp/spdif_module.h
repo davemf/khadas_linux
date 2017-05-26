@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/spdif_module.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,15 +13,15 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __SPDIF_MODULE_H__
 #define __SPDIF_MODULE_H__
 struct _iec958_data_info {
-	unsigned iec958_hw_start;
-	unsigned iec958_hw_rd_offset;
-	unsigned iec958_wr_offset;
-	unsigned iec958_buffer_size;
+	unsigned int iec958_hw_start;
+	unsigned int iec958_hw_rd_offset;
+	unsigned int iec958_wr_offset;
+	unsigned int iec958_buffer_size;
 };
 
 #define AUDIO_SPDIF_GET_958_BUF_SIZE	_IOR('s', 0x01, unsigned long)
@@ -44,7 +44,7 @@ static ssize_t audio_spdif_read(struct file *filp, char __user *buffer,
 				size_t length, loff_t *offset);
 static int audio_spdif_mmap(struct file *file, struct vm_area_struct *vma);
 extern void aml_alsa_hw_reprepare(void);
-extern void audio_enable_ouput(int flag);
+extern void audio_enable_output(int flag);
 extern unsigned int IEC958_mode_raw;
 extern unsigned int IEC958_mode_codec;
 

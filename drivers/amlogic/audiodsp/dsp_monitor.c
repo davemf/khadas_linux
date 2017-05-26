@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/dsp_monitor.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -33,6 +33,7 @@ static void audiodsp_monitor(unsigned long arg)
 	static unsigned long jiffies_error;
 	unsigned long dsp_jiffies;
 	unsigned long dsp_status;
+
 	dsp_jiffies = DSP_RD(DSP_JIFFIES);
 	dsp_status = DSP_RD(DSP_STATUS);
 

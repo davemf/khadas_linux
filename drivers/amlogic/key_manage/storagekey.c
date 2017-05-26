@@ -1,7 +1,7 @@
 /*
- * drivers/storagekey/storagekey.c
+ * drivers/amlogic/key_manage/storagekey.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,7 +12,8 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
-*/
+ *
+ */
 
 /* extern from bl31 */
 /*
@@ -33,8 +34,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/kallsyms.h>
-#include <linux/amlogic/efuse-amlogic.h>
-#include <linux/amlogic/efuse-amlogic.h>
+#include <linux/amlogic/efuse.h>
 #include <linux/amlogic/security_key.h>
 #include <linux/amlogic/key_manage.h>
 #include <linux/of.h>
@@ -65,8 +65,8 @@ static struct storagekey_info_t storagekey_info = {
 };
 
 
-store_key_ops store_key_read = NULL;
-store_key_ops store_key_write = NULL;
+store_key_ops store_key_read;
+store_key_ops store_key_write;
 
 #ifndef OTHER_METHOD_CALL
 int store_operation_init(void)
@@ -169,7 +169,7 @@ int32_t amlkey_isexsit(const uint8_t *name)
 	int32_t ret = 0;
 	uint32_t retval;
 
-	if (NULL == name) {
+	if (name == NULL) {
 		pr_err("%s() %d, invalid key ", __func__, __LINE__);
 		return 0;
 	}
@@ -192,7 +192,7 @@ int32_t amlkey_get_attr(const uint8_t *name)
 	int32_t ret = 0;
 	uint32_t retval;
 
-	if (NULL == name) {
+	if (name == NULL) {
 		pr_err("%s() %d, invalid key ", __func__, __LINE__);
 		return 0;
 	}
@@ -234,7 +234,7 @@ ssize_t amlkey_size(const uint8_t *name)
 	int32_t ret = 0;
 	uint32_t retval;
 
-	if (NULL == name) {
+	if (name == NULL) {
 		pr_err("%s() %d, invalid key ", __func__, __LINE__);
 		return 0;
 	}
@@ -258,7 +258,7 @@ ssize_t amlkey_read(const uint8_t *name, uint8_t *buffer, uint32_t len)
 	ssize_t retval = 0;
 	uint32_t actul_len;
 
-	if (NULL == name) {
+	if (name == NULL) {
 		pr_err("%s() %d, invalid key ", __func__, __LINE__);
 		return 0;
 	}
@@ -286,15 +286,18 @@ ssize_t amlkey_write(const uint8_t *name,
 {
 	int32_t ret = 0;
 	ssize_t retval = 0;
-	uint32_t actual_lenth;
+	uint32_t actual_length;
+	uint8_t *buf = NULL;
 
-	if (NULL == name) {
+	if (name == NULL) {
 		pr_err("%s() %d, invalid key ", __func__, __LINE__);
 		return retval;
 	}
+
+	pr_info("%s %d\n", __func__, __LINE__);
 	ret = secure_storage_write((uint8_t *)name,
-		buffer, len,
-		attr);
+			buffer, len,
+			attr);
 	if (ret) {
 		pr_err("%s() %d: return %d\n", __func__, __LINE__, ret);
 		retval = 0;
@@ -303,14 +306,19 @@ ssize_t amlkey_write(const uint8_t *name,
 		retval = (ssize_t)len;
 		/* write down! */
 		if (storagekey_info.buffer != NULL) {
+			buf = kzalloc(storagekey_info.size, GFP_KERNEL);
+			memcpy(buf, storagekey_info.buffer,
+					storagekey_info.size);
 			if (store_key_write)
-				ret = store_key_write(storagekey_info.buffer,
-					storagekey_info.size, &actual_lenth);
+				ret = store_key_write(buf,
+						storagekey_info.size,
+						&actual_length);
 			if (ret) {
 				pr_err("%s() %d, store_key_write fail\n",
-					__func__, __LINE__);
+						__func__, __LINE__);
 				retval = 0;
 			}
+			kfree(buf);
 		}
 	}
 _out:
@@ -336,16 +344,13 @@ int32_t amlkey_hash_4_secure(const uint8_t *name, uint8_t *hash)
 int32_t amlkey_del(const uint8_t *name)
 {
 	int32_t ret = 0;
-	uint32_t actual_lenth;
+	uint32_t actual_length;
 
-	/* ret = secure_storage_remove((uint8_t *)name);
-	??????????????????????
-	*/
 	if ((ret == 0) && (storagekey_info.buffer != NULL)) {
 		/* flush back */
 		if (store_key_write)
 			ret = store_key_write(storagekey_info.buffer,
-				storagekey_info.size, &actual_lenth);
+				storagekey_info.size, &actual_length);
 		if (ret) {
 			pr_err("%s() %d, store_key_write fail\n",
 				 __func__,

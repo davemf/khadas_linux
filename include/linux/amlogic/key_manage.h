@@ -1,7 +1,7 @@
 /*
- * include/linux/amlogic/securitykey.h
+ * include/linux/amlogic/key_manage.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,26 +13,24 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef __KEYMANAGE1__
 #define __KEYMANAGE1__
 
 typedef int32_t (*store_key_ops)(uint8_t *buf,
-					uint32_t len, uint32_t *actual_lenth);
+					uint32_t len, uint32_t *actual_length);
 
-#ifdef CONFIG_KEY_MANAGE
+#ifdef CONFIG_AMLOGIC_KEY_MANAGE
 void storage_ops_read(store_key_ops read);
 void storage_ops_write(store_key_ops write);
 #else
 void storage_ops_read(store_key_ops read)
 {
-	return;
 }
 
 void storage_ops_write(store_key_ops read)
 {
-	return;
 }
 #endif /*CONFIG_KEY_MANAGE*/
 

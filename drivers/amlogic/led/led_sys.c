@@ -1,8 +1,7 @@
 /*
- * drivers/amlogic/led/led_sys.h
+ * drivers/amlogic/led/led_sys.c
  *
- *
- * Copyright (C) 2016 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #define pr_fmt(fmt)	"sysled: " fmt
 
@@ -76,7 +75,7 @@ static int aml_sysled_dt_parse(struct platform_device *pdev)
 {
 	struct device_node *node;
 	struct aml_sysled_dev *ldev;
-	struct gpio_desc *desc;
+	int led_gpio;
 	enum of_gpio_flags flags;
 
 	ldev = platform_get_drvdata(pdev);
@@ -86,8 +85,13 @@ static int aml_sysled_dt_parse(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	desc = of_get_named_gpiod_flags(node, "led_gpio", 0, &flags);
-	ldev->d.pin = desc_to_gpio(desc);
+	led_gpio = of_get_named_gpio_flags(node, "led_gpio", 0, &flags);
+	if (!gpio_is_valid(led_gpio)) {
+		pr_err("gpio %d is not valid\n", led_gpio);
+		return -EINVAL;
+	}
+
+	ldev->d.pin = led_gpio;
 	ldev->d.active_low = flags & OF_GPIO_ACTIVE_LOW;
 	pr_info("led_gpio = %u\n", ldev->d.pin);
 	pr_info("active_low = %u\n", ldev->d.active_low);
@@ -113,10 +117,6 @@ static int aml_sysled_probe(struct platform_device *pdev)
 	int ret;
 
 	ldev = kzalloc(sizeof(struct aml_sysled_dev), GFP_KERNEL);
-	if (!ldev) {
-		pr_err("kzalloc error\n");
-		return -ENOMEM;
-	}
 
 	/* set driver data */
 	platform_set_drvdata(pdev, ldev);

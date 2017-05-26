@@ -1,4 +1,20 @@
-#include <linux/amlogic/saradc.h>
+/*
+ * drivers/amlogic/thermal/aml_thermal_hw.c
+ *
+ * Copyright (C) 2016 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/amlogic/cpu_version.h>
@@ -8,11 +24,9 @@
 #include <linux/of.h>
 #include <linux/cpufreq.h>
 #include <linux/cpu_cooling.h>
-#include <linux/cpucore_cooling.h>
-#include <linux/gpucore_cooling.h>
-#include <linux/gpu_cooling.h>
-#include <linux/thermal_core.h>
-#include <linux/opp.h>
+#include <linux/amlogic/cpucore_cooling.h>
+#include <linux/amlogic/gpucore_cooling.h>
+#include <linux/amlogic/gpu_cooling.h>
 #include <linux/cpu.h>
 
 #define NOT_WRITE_EFUSE		0x0
@@ -77,9 +91,10 @@ int get_cpu_temp(void)
 }
 EXPORT_SYMBOL(get_cpu_temp);
 
-static int get_cur_temp(void *data, long *temp)
+static int get_cur_temp(void *data, int *temp)
 {
 	int val;
+
 	val = get_cpu_temp();
 	if (val == -1000)
 		return -EINVAL;
@@ -121,7 +136,6 @@ int aml_thermal_min_update(struct thermal_cooling_device *cdev)
 {
 	struct gpufreq_cooling_device *gf_cdev;
 	struct gpucore_cooling_device *gc_cdev;
-	struct thermal_instance *ins;
 	struct cool_dev *cool;
 	long min_state;
 	int i;
@@ -171,12 +185,8 @@ int aml_thermal_min_update(struct thermal_cooling_device *cdev)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < soc_sensor.tzd->trips; i++) {
-		ins = get_thermal_instance(soc_sensor.tzd,
-					   cdev, i);
-		if (ins)
-			ins->upper = min_state;
-	}
+	for (i = 0; i < soc_sensor.tzd->trips; i++)
+		thermal_set_upper(soc_sensor.tzd, cdev, i, min_state);
 
 	return 0;
 }
@@ -301,11 +311,13 @@ static int aml_thermal_probe(struct platform_device *pdev)
 	int cpu, i, c_id;
 	struct device_node *np, *child;
 	struct cool_dev *cool;
+	struct cpufreq_policy *policy;
 
 	memset(&soc_sensor, 0, sizeof(struct aml_thermal_sensor));
-	if (!cpufreq_frequency_get_table(0)) {
+	policy = cpufreq_cpu_get(0);
+	if (!policy || !policy->freq_table) {
 		dev_info(&pdev->dev,
-			"Frequency table not initialized. Deferring probe...\n");
+			"Frequency policy not init. Deferring probe...\n");
 		return -EPROBE_DEFER;
 	}
 
@@ -353,7 +365,6 @@ static int aml_thermal_probe(struct platform_device *pdev)
 			 soc_sensor.tzd);
 		return PTR_ERR(soc_sensor.tzd);
 	}
-	thermal_zone_device_update(soc_sensor.tzd);
 
 	/* update min state for each device */
 	for (i = 0; i < soc_sensor.cool_dev_num; i++) {
@@ -361,7 +372,7 @@ static int aml_thermal_probe(struct platform_device *pdev)
 		if (cool->cooling_dev)
 			aml_thermal_min_update(cool->cooling_dev);
 	}
-	thermal_zone_device_update(soc_sensor.tzd);
+	thermal_zone_device_update(soc_sensor.tzd, THERMAL_EVENT_UNSPECIFIED);
 
 	return 0;
 }
@@ -372,7 +383,7 @@ static int aml_thermal_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct of_device_id aml_thermal_of_match[] = {
+static const struct of_device_id aml_thermal_of_match[] = {
 	{ .compatible = "amlogic, aml-thermal" },
 	{},
 };
@@ -390,6 +401,6 @@ static struct platform_driver aml_thermal_platdrv = {
 
 static int __init aml_thermal_platdrv_init(void)
 {
-	 return platform_driver_register(&(aml_thermal_platdrv));
+	return platform_driver_register(&(aml_thermal_platdrv));
 }
 late_initcall(aml_thermal_platdrv_init);

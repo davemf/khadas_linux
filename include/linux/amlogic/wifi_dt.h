@@ -1,7 +1,7 @@
 /*
  * include/linux/amlogic/wifi_dt.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,12 +13,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef _wifi_dt_h_
 #define _wifi_dt_h_
 
 extern void sdio_reinit(void);
+extern char *get_wifi_inf(void);
 void extern_wifi_set_enable(int is_on);
 int wifi_irq_num(void);
 

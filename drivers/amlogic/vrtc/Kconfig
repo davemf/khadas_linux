@@ -1,6 +1,6 @@
 # Amlogic VRTC
 
-config AML_VRTC
+config AMLOGIC_VRTC
     bool "meson VRTC support"
     default n
     select RTC_CLASS

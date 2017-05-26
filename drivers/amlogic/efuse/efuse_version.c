@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/efuse/efuse_version.c
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #include <linux/types.h>
 /* #include <mach/am_regs.h> */
@@ -45,66 +45,45 @@ static struct efuseinfo_item_t efuseinfo_M8_serialNum_v1[] = {
 		.title = "licence",
 		.id = EFUSE_LICENCE_ID,
 		.offset = 0,
-		.enc_len = 4,
 		.data_len = 4,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		.title = "nandextcmd",
 		.id = EFUSE_NANDEXTCMD_ID,
 		.offset = 4,
-		.enc_len = 16,
 		.data_len = 16,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		.title = "mac",  /* for the main network interface */
 		.id = EFUSE_MAC_ID,
 		.offset = 436,
-		.enc_len = 6,
 		.data_len = 6,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		/* for the second network interface or bt */
 		.title = "mac_bt",
 		.id = EFUSE_MAC_BT_ID,
 		.offset = 442,
-		.enc_len = 6,
 		.data_len = 6,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		/* for the second network interface or bt */
 		.title = "mac_wifi",
 		.id = EFUSE_MAC_WIFI_ID,
 		.offset = 448,
-		.enc_len = 6,
 		.data_len = 6,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		.title = "usid",
 		.id = EFUSE_USID_ID,
 		.offset = 454,
-		.enc_len = 48,
 		.data_len = 48,
-		.bch_en = 0,
-		.bch_reverse = 0,
 	},
 	{
 		.title = "version",
 		.id = EFUSE_VERSION_ID,
 		.offset = M8_EFUSE_VERSION_OFFSET, /* 509 */
-		.enc_len = M8_EFUSE_VERSION_ENC_LEN,
 		.data_len = M8_EFUSE_VERSION_DATA_LEN,
-		.bch_en = M8_EFUSE_VERSION_BCH_EN,
-		.bch_reverse = M8_EFUSE_VERSION_BCH_REVERSE,
 	},
 };
 

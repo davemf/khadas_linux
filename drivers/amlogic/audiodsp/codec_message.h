@@ -1,7 +1,7 @@
 /*
  * drivers/amlogic/audiodsp/codec_message.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
-*/
+ */
 
 #ifndef _CODEC_MESSAGE_HEADERS
 #define _CODEC_MESSAGE_HEADERS
@@ -43,11 +43,11 @@ struct digit_raw_output_info {
 	unsigned int syncword1_mask;
 	unsigned int syncword2_mask;
 	unsigned int syncword3_mask;
-	unsigned chstat0_l;
-	unsigned chstat0_r;
-	unsigned chstat1_l;
-	unsigned chstat1_r;
-	unsigned can_bypass;
+	unsigned int chstat0_l;
+	unsigned int chstat0_r;
+	unsigned int chstat1_l;
+	unsigned int chstat1_r;
+	unsigned int can_bypass;
 };
 
 struct frame_fmt {
@@ -82,7 +82,7 @@ struct dsp_working_info {
 	int ilink1;
 	int ilink2;
 	int blink;
-	int jeffies;
+	int jiffies;
 	int out_wp;
 	int out_rp;
 	int buffered_len;	/* pcm buffered at the dsp side */

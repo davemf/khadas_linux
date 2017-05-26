@@ -2,4 +2,4 @@
 # Makefile for jtag.
 #
 
-obj-$(CONFIG_AML_JTAG_SETUP) += jtag_setup.o
+obj-$(CONFIG_AMLOGIC_JTAG_MESON) += meson_jtag.o
