@@ -534,6 +534,8 @@ static int refresh_tvout_mode(void)
 
 #ifdef CONFIG_AMLOGIC_HDMITX
 	hdp_state = get_hpd_state();
+	/* disable hdp */
+	hdp_state = 1;
 #endif
 	if (hdp_state) {
 		cur_vmode = validate_vmode(hdmimode);
