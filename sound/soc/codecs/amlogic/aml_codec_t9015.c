@@ -37,6 +37,7 @@
 #include <linux/amlogic/media/sound/aiu_regs.h>
 
 #include "aml_codec_t9015.h"
+struct snd_soc_codec *g_codec;
 
 struct aml_T9015_audio_priv {
 	struct snd_soc_codec *codec;
@@ -89,9 +90,8 @@ static int aml_DAC_Gain_set_enum(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	u32 add = ADC_VOL_CTR_PGA_IN_CONFIG;
-	u32 val = snd_soc_read(codec, add);
+	u32 val = snd_soc_read(g_codec, add);
 
 	if (ucontrol->value.enumerated.item[0] == 0) {
 		val &= ~(0x1 << DAC_GAIN_SEL_H);
@@ -110,7 +110,7 @@ static int aml_DAC_Gain_set_enum(
 		pr_info("It has risk of distortion!\n");
 	}
 
-	snd_soc_write(codec, val, add);
+	snd_soc_write(g_codec, val, add);
 	return 0;
 }
 
@@ -366,6 +366,9 @@ static int aml_T9015_audio_probe(struct snd_soc_codec *codec)
 	T9015_audio = kzalloc(sizeof(struct aml_T9015_audio_priv), GFP_KERNEL);
 	if (T9015_audio == NULL)
 		return -ENOMEM;
+	g_codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
+	if (g_codec == NULL)
+		return -ENOMEM;
 	snd_soc_codec_set_drvdata(codec, T9015_audio);
 #if 0 /*tmp_mask_for_kernel_4_4*/
 	snd_soc_codec_set_cache_io(codec, 32, 32, SND_SOC_REGMAP);
@@ -384,6 +387,7 @@ static int aml_T9015_audio_probe(struct snd_soc_codec *codec)
 
 	codec->component.dapm.bias_level = SND_SOC_BIAS_STANDBY;
 	T9015_audio->codec = codec;
+	g_codec = codec;
 
 	return 0;
 }
