@@ -1103,3 +1103,6 @@
 &i2c_a {
 	status = "okay";
 };
+&i2c_b {
+	status = "okay";
+};
