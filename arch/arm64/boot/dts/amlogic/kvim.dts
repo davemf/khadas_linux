@@ -1106,3 +1106,6 @@
 &i2c_b {
 	status = "okay";
 };
+&uart_AO_B {
+	status = "okay";
+};
