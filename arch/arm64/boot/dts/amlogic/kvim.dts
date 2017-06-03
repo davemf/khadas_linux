@@ -1100,3 +1100,6 @@
 &efuse {
 	status = "ok";
 };
+&i2c_a {
+	status = "okay";
+};
