@@ -960,7 +960,7 @@
 	amlvideo2 {
 		compatible = "amlogic, amlvideo2";
 		dev_name = "amlvideo2";
-		status = "okay";
+		status = "disabled";
 		cma_mode = <1>;
 	};
 
