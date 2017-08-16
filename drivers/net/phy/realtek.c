@@ -30,6 +30,7 @@
 #define RTL8211F_WOL_RST 0x11
 #define RTL8211F_MAX_PACKET_CTRL 0x11
 #define RTL8211F_BMCR   0x00
+#define RTL821x_EPAGSR      0x1f
 
 #define RTL8211F_INER_LINK_STATUS 0x0010
 #define RTL8211F_INSR		0x1d
@@ -49,8 +50,8 @@ static void rtl8211f_config_speed(struct phy_device *phydev, int mode);
 
 static int wol_enable = 0;
 static u8 mac_addr[] = {0, 0, 0, 0, 0, 0};
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
+#ifdef CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND
+#include <linux/amlogic/pm.h>
 struct phy_device *g_phydev;
 
 int get_wol_state(void){
@@ -284,7 +285,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
 	rtl8211f_config_pin_as_pmeb(phydev);
 	rtl8211f_config_speed(phydev, 1);
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_AMLOGIC_LEGACY_EARLY_SUSPEND
 	g_phydev = kzalloc(sizeof(struct phy_device), GFP_KERNEL);
 	if (g_phydev == NULL)
 		return -ENOMEM;
