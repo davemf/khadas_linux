@@ -99,7 +99,6 @@ __setup("androidboot.mac=",init_mac_addr);
 static void rtl8211f_early_suspend(struct early_suspend *h)
 {
 	if (wol_enable) {
-		rtl8211f_config_pin_as_pmeb(g_phydev);
 		rtl8211f_config_mac_addr(g_phydev);
 		rtl8211f_config_max_packet(g_phydev);
 		rtl8211f_config_wol(g_phydev, 1);
@@ -283,6 +282,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	phy_write(phydev, 0x11, reg);
 	/* restore to default page 0 */
 	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
+	rtl8211f_config_pin_as_pmeb(phydev);
 	rtl8211f_config_speed(phydev, 1);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	g_phydev = kzalloc(sizeof(struct phy_device), GFP_KERNEL);
