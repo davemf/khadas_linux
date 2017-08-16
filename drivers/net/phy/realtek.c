@@ -29,7 +29,7 @@
 #define RTL8211F_WOL_CTRL 0x10
 #define RTL8211F_WOL_RST 0x11
 #define RTL8211F_MAX_PACKET_CTRL 0x11
-
+#define RTL8211F_BMCR   0x00
 
 #define RTL8211F_INER_LINK_STATUS 0x0010
 #define RTL8211F_INSR		0x1d
@@ -45,6 +45,7 @@ static void rtl8211f_config_wakeup_frame_mask(struct phy_device *phydev);
 static void rtl8211f_config_max_packet(struct phy_device *phydev);
 static void rtl8211f_config_pad_isolation(struct phy_device *phydev, int enable);
 static void rtl8211f_config_wol(struct phy_device *phydev, int enable);
+static void rtl8211f_config_speed(struct phy_device *phydev, int mode);
 
 static int wol_enable = 0;
 static u8 mac_addr[] = {0, 0, 0, 0, 0, 0};
@@ -110,6 +111,7 @@ static void rtl8211f_early_suspend(struct early_suspend *h)
 static void rtl8211f_late_resume(struct early_suspend *h)
 {
 	if (wol_enable) {
+		rtl8211f_config_speed(g_phydev, 1);
 		rtl8211f_config_wol(g_phydev, 0);
 		rtl8211f_config_pad_isolation(g_phydev, 0);
 	}
@@ -120,6 +122,16 @@ static struct early_suspend rtl8211f_early_suspend_handler = {
 	.suspend = rtl8211f_early_suspend,
 	.resume = rtl8211f_late_resume,
 };
+
+static void rtl8211f_config_speed(struct phy_device *phydev, int mode)
+{
+	phy_write(phydev, RTL821x_EPAGSR, 0x0); /*set page 0x0*/
+	if (mode == 1) {
+		phy_write(phydev, RTL8211F_BMCR, 0x1040);  /* 1000Mbps */
+	} else {
+		phy_write(phydev, RTL8211F_BMCR, 0x0); /* 10Mbps */
+	}
+}
 
 static void rtl8211f_config_mac_addr(struct phy_device *phydev)
 {
@@ -271,7 +283,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	phy_write(phydev, 0x11, reg);
 	/* restore to default page 0 */
 	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
-
+	rtl8211f_config_speed(phydev, 1);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	g_phydev = kzalloc(sizeof(struct phy_device), GFP_KERNEL);
 	if (g_phydev == NULL)
