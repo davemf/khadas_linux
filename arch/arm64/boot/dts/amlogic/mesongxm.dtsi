@@ -480,7 +480,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			use_pio = <0>;
-			master_i2c_speed = <300000>;
+			master_i2c_speed = <100000>;
 			clocks = <&clkc CLKID_I2C>;
 			clock-names = "clk_i2c";
 		};
