@@ -24,8 +24,11 @@
 #include "dwmac_dma.h"
 #endif
 #include "stmmac_platform.h"
+#include <linux/amlogic/cpu_version.h>
 
 #define ETHMAC_SPEED_100	BIT(1)
+
+extern void rtl8211f_shutdown(void);
 
 struct meson_dwmac {
 	struct device	*dev;
@@ -206,6 +209,14 @@ err_remove_config_dt:
 	return ret;
 }
 
+#ifdef CONFIG_PM
+static void stmmac_pltfr_shutdown(struct platform_device *dev)
+{
+	if (get_cpu_type() == MESON_CPU_MAJOR_ID_GXM)
+		rtl8211f_shutdown();
+}
+#endif
+
 static const struct of_device_id meson6_dwmac_match[] = {
 	{ .compatible = "amlogic,meson6-dwmac" },
 #ifdef CONFIG_AMLOGIC_ETH_PRIVE
@@ -218,6 +229,9 @@ MODULE_DEVICE_TABLE(of, meson6_dwmac_match);
 static struct platform_driver meson6_dwmac_driver = {
 	.probe  = meson6_dwmac_probe,
 	.remove = stmmac_pltfr_remove,
+#ifdef CONFIG_PM
+	.shutdown = stmmac_pltfr_shutdown,
+#endif
 	.driver = {
 		.name           = "meson6-dwmac",
 		.pm		= &stmmac_pltfr_pm_ops,
