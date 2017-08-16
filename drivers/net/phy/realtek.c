@@ -46,7 +46,7 @@ static void rtl8211f_config_max_packet(struct phy_device *phydev);
 static void rtl8211f_config_pad_isolation(struct phy_device *phydev, int enable);
 static void rtl8211f_config_wol(struct phy_device *phydev, int enable);
 
-int wol_enable = 1;
+static int wol_enable = 0;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 struct phy_device *g_phydev;
@@ -54,6 +54,15 @@ struct phy_device *g_phydev;
 int get_wol_state(void){
 	return wol_enable;
 }
+
+static int __init init_wol_state(char *str)
+{
+	wol_enable = simple_strtol(str, NULL, 0);
+	printk("%s, wol_enable=%d\b",__func__, wol_enable);
+	return 1;
+}
+__setup("wol_enable=", init_wol_state);
+
 
 static void rtl8211f_early_suspend(struct early_suspend *h)
 {
