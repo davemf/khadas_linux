@@ -487,6 +487,8 @@ int stmmac_pltfr_remove(struct platform_device *pdev)
 EXPORT_SYMBOL_GPL(stmmac_pltfr_remove);
 
 #ifdef CONFIG_PM_SLEEP
+extern void rtl8211f_suspend(void);
+extern void rtl8211f_resume(void);
 /**
  * stmmac_pltfr_suspend
  * @dev: device pointer
@@ -506,6 +508,8 @@ static int stmmac_pltfr_suspend(struct device *dev)
 		priv->plat->suspend(pdev, priv->plat->bsp_priv);
 	else if (priv->plat->exit)
 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+
+	rtl8211f_suspend();
 
 	return ret;
 }
@@ -527,6 +531,8 @@ static int stmmac_pltfr_resume(struct device *dev)
 		priv->plat->resume(pdev, priv->plat->bsp_priv);
 	else if (priv->plat->init)
 		priv->plat->init(pdev, priv->plat->bsp_priv);
+
+	rtl8211f_resume();
 
 	return stmmac_resume(dev);
 }

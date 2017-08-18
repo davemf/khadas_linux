@@ -69,6 +69,24 @@ void rtl8211f_shutdown(void) {
 	}
 }
 
+void rtl8211f_suspend(void) {
+	if (wol_enable) {
+		rtl8211f_config_mac_addr(g_phydev);
+		rtl8211f_config_max_packet(g_phydev);
+		rtl8211f_config_wol(g_phydev, 1);
+		rtl8211f_config_wakeup_frame_mask(g_phydev);
+		rtl8211f_config_pad_isolation(g_phydev, 1);
+	}
+}
+
+void rtl8211f_resume(void) {
+	if (wol_enable) {
+		rtl8211f_config_speed(g_phydev, 1);
+		rtl8211f_config_wol(g_phydev, 0);
+		rtl8211f_config_pad_isolation(g_phydev, 0);
+	}
+}
+
 static unsigned char chartonum(char c)
 {
 	if (c >= '0' && c <= '9')
