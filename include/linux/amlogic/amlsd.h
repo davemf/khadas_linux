@@ -19,12 +19,12 @@
 #define AMLSD_H
 #include <linux/of_gpio.h>
 
-#define AML_MMC_MAJOR_VERSION   1
-#define AML_MMC_MINOR_VERSION   07
+#define AML_MMC_MAJOR_VERSION   3
+#define AML_MMC_MINOR_VERSION   02
 #define AML_MMC_VERSION \
 	((AML_MMC_MAJOR_VERSION << 8) | AML_MMC_MINOR_VERSION)
 #define AML_MMC_VER_MESSAGE \
-	"2015-01-21: fix a bug in tuning which caused eMMC data CRC error"
+	"2017-05-15: New Emmc Host Controller"
 
 extern unsigned long sdhc_debug;
 extern unsigned long sdio_debug;
@@ -64,6 +64,7 @@ extern const u8 tuning_blk_pattern_8bit[128];
 #define AMLSD_DBG_IRQ		(1<<10)
 #define AMLSD_DBG_CLKC		(1<<11)
 #define AMLSD_DBG_TUNING	(1<<12)
+#define AMLSD_DBG_V3		(1<<13)
 
 #define     DETECT_CARD_IN          1
 #define     DETECT_CARD_OUT         2
@@ -108,6 +109,11 @@ extern const u8 tuning_blk_pattern_8bit[128];
 } while (0)
 #define sd_emmc_err(fmt, args...) \
 	pr_warn("[%s] " fmt, __func__, ##args)
+
+#define emmc_dbg(dbg_level, fmt, args...) do {\
+	if (dbg_level & sd_emmc_debug)	\
+		pr_warn("[%s]" fmt, __func__, ##args);	\
+} while (0)
 
 #define SD_PARSE_U32_PROP_HEX(node, prop_name, prop, value) do { \
 	if (!of_property_read_u32(node, prop_name, &prop)) {\
@@ -155,6 +161,8 @@ extern const u8 tuning_blk_pattern_8bit[128];
 
 #define SD_CAPS(a, b) { .caps = a, .name = b }
 
+#define WAIT_UNTIL_REQ_DONE msecs_to_jiffies(10000)
+
 struct sd_caps {
 	unsigned int caps;
 	const char *name;
@@ -168,8 +176,6 @@ extern int storage_flag;
 extern void aml_debug_print_buf(char *buf, int size);
 extern int aml_buf_verify(int *buf, int blocks, int lba);
 extern void aml_sdhc_init_debugfs(struct mmc_host *mmc);
-void aml_sdhc_print_reg_(u32 *buf);
-extern void aml_sdhc_print_reg(struct amlsd_host *host);
 extern void aml_sdio_init_debugfs(struct mmc_host *mmc);
 extern void aml_sd_emmc_init_debugfs(struct mmc_host *mmc);
 extern void aml_sdio_print_reg(struct amlsd_host *host);
@@ -179,6 +185,10 @@ extern int add_part_table(struct mtd_partition *part, unsigned int nr_part);
 extern int add_emmc_partition(struct gendisk *disk);
 #endif
 #ifdef CONFIG_AMLOGIC_M8B_MMC
+void aml_sdhc_print_reg_(u32 *buf);
+extern void aml_sdhc_print_reg(struct amlsd_host *host);
+void aml_dbg_print_pinmux(void);
+
 extern size_t aml_sg_copy_buffer(struct scatterlist *sgl, unsigned int nents,
 		void *buf, size_t buflen, int to_buffer);
 #endif
@@ -214,7 +224,6 @@ bool is_emmc_exist(struct amlsd_host *host);
 void aml_devm_pinctrl_put(struct amlsd_host *host);
 /* void of_init_pins (struct amlsd_platform* pdata); */
 
-void aml_dbg_print_pinmux(void);
 #ifdef CONFIG_MMC_AML_DEBUG
 void aml_dbg_verify_pull_up(struct amlsd_platform *pdata);
 int aml_dbg_verify_pinmux(struct amlsd_platform *pdata);

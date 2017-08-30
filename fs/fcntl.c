@@ -62,6 +62,7 @@ int setfl(int fd, struct file * filp, unsigned long arg)
 		error = filp->f_op->check_flags(arg);
 	if (!error && filp->f_op->setfl)
 		error = filp->f_op->setfl(filp, arg);
+
 	if (error)
 		return error;
 
@@ -82,6 +83,7 @@ int setfl(int fd, struct file * filp, unsigned long arg)
  out:
 	return error;
 }
+
 EXPORT_SYMBOL_GPL(setfl);
 
 static void f_modown(struct file *filp, struct pid *pid, enum pid_type type,
@@ -744,16 +746,10 @@ static int __init fcntl_init(void)
 	 * Exceptions: O_NONBLOCK is a two bit define on parisc; O_NDELAY
 	 * is defined as O_NONBLOCK on some platforms and not on others.
 	 */
-	BUILD_BUG_ON(21 - 1 /* for O_RDONLY being 0 */ != HWEIGHT32(
-		O_RDONLY	| O_WRONLY	| O_RDWR	|
-		O_CREAT		| O_EXCL	| O_NOCTTY	|
-		O_TRUNC		| O_APPEND	| /* O_NONBLOCK	| */
-		__O_SYNC	| O_DSYNC	| FASYNC	|
-		O_DIRECT	| O_LARGEFILE	| O_DIRECTORY	|
-		O_NOFOLLOW	| O_NOATIME	| O_CLOEXEC	|
-		__FMODE_EXEC	| O_PATH	| __O_TMPFILE	|
-		__FMODE_NONOTIFY
-		));
+	BUILD_BUG_ON(21 - 1 /* for O_RDONLY being 0 */ !=
+		HWEIGHT32(
+			(VALID_OPEN_FLAGS & ~(O_NONBLOCK | O_NDELAY)) |
+			__FMODE_EXEC | __FMODE_NONOTIFY));
 
 	fasync_cache = kmem_cache_create("fasync_cache",
 		sizeof(struct fasync_struct), 0, SLAB_PANIC, NULL);

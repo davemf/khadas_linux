@@ -102,6 +102,8 @@ struct meson_clk_mpll {
 	/* FIXME ssen gate control? */
 	u8 sdm_en;
 	u8 en_dds;
+	u16 top_misc_reg; /*after txlx*/
+	u16 top_misc_bit;
 	spinlock_t *lock;
 };
 
@@ -126,6 +128,9 @@ extern const struct clk_ops meson_clk_cpu_ops;
 extern const struct clk_ops meson_clk_mpll_ro_ops;
 extern const struct clk_ops meson_clk_mpll_ops;
 extern const struct clk_ops meson_clk_mux_ops;
+extern const struct clk_ops meson_axg_pll_ro_ops;
+extern const struct clk_ops meson_axg_pll_ops;
+
 extern spinlock_t clk_lock;
 extern void __iomem *clk_base;
 extern struct clk **clks;
@@ -133,4 +138,7 @@ void amlogic_init_sdemmc(void);
 void amlogic_init_gpu(void);
 void amlogic_init_media(void);
 void amlogic_init_misc(void);
+void axg_amlogic_init_sdemmc(void);
+void axg_amlogic_init_media(void);
+void axg_amlogic_init_misc(void);
 #endif /* __CLKC_H */

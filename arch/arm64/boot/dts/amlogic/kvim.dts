@@ -20,6 +20,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "mesongxl.dtsi"
 #include "partitions.dtsi"
+#include "meson_drm.dtsi"
 / {
 	model = "Amlogic";
 	amlogic-dt-id = "kvim";
@@ -52,22 +53,17 @@
 		ranges;
 		/* global autoconfigured region for contiguous allocations */
 		secmon_reserved:linux,secmon {
-			compatible = "amlogic, aml_secmon_memory";
-			reg = <0x0 0x10000000 0x0 0x200000>;
-			no-map;
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x400000>;
+			alignment = <0x0 0x400000>;
+			alloc-ranges = <0x0 0x05000000 0x0 0x400000>;
 		};
 		secos_reserved:linux,secos {
 			status = "disable";
 			compatible = "amlogic, aml_secos_memory";
 			reg = <0x0 0x05300000 0x0 0x2000000>;
 			no-map;
-		};
-		fb_reserved:linux,meson-fb {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x0 0x2000000>;
-			alignment = <0x0 0x400000>;
-			alloc-ranges = <0x0 0x7e000000 0x0 0x2000000>;
 		};
 
 		//di_reserved:linux,di {
@@ -85,8 +81,10 @@
 		};
 
 		ion_reserved:linux,ion-dev {
-			compatible = "amlogic, idev-mem";
-			size = <0x0 0x0>;
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x2000000>;
+			alignment = <0x0 0x400000>;
 		};
 
 		/*  vdin0 CMA pool */
@@ -149,18 +147,25 @@
 		interrupt_pin = <&gpio       GPIOX_7       GPIO_ACTIVE_HIGH>;
 		interrupts = <	0 68 4>;
 		irq_trigger_type = "GPIO_IRQ_LOW";
+                dhd_static_buf;    //dhd_static_buf support
 		power_on_pin = <&gpio       GPIOX_6       GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "wifi_32k_pins";
+		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_32k_pins>;
-//		pwm_config = <&wifi_pwm_conf>;
+		pwm_config = <&wifi_pwm_conf>;
 	};
 
-//	wifi_pwm_conf:wifi_pwm_conf{
-//		pwm_channel1 = <PWM_E>;
-//		pwm_channel2 = <PWM_E2>;
-//		pwm_channel1_conf = <30541 15270 6>;
-//		pwm_channel2_conf = <30518 15259 9>;
-//	};
+	wifi_pwm_conf:wifi_pwm_conf{
+		pwm_channel1_conf {
+			pwms = <&pwm_ef MESON_PWM_0 30040 0>;
+			duty-cycle = <15020>;
+			times = <8>;
+		};
+		pwm_channel2_conf {
+			pwms = <&pwm_ef MESON_PWM_2 30030 0>;
+			duty-cycle = <15015>;
+			times = <12>;
+		};
+	};
 
 	sd_emmc_c: emmc@d0074000 {
 		status = "okay";
@@ -693,7 +698,6 @@
 
 	meson-fb {
 		compatible = "amlogic, meson-fb";
-		memory-region = <&fb_reserved>;
 		dev_name = "meson-fb";
 		status = "okay";
 		interrupts = <0 3 1
@@ -848,6 +852,8 @@
 				"Ext Spk","LOUTL",
 				"Ext Spk","LOUTR";
 
+		mute_gpio-gpios = <&gpio GPIOH_5 0>;
+		mute_inv;
 		hp_disable;
 		hp_paraments = <800 300 0 5 1>;
 		pinctrl-names = "aml_audio_i2s";
@@ -943,10 +949,19 @@
 		status = "okay";
 	};
 
-	amlvideo2 {
+	amlvideo2_0 {
 		compatible = "amlogic, amlvideo2";
 		dev_name = "amlvideo2";
 		status = "okay";
+		amlvideo2_id = <0>;
+		cma_mode = <1>;
+	};
+
+	amlvideo2_1 {
+		compatible = "amlogic, amlvideo2";
+		dev_name = "amlvideo2";
+		status = "okay";
+		amlvideo2_id = <1>;
 		cma_mode = <1>;
 	};
 
@@ -1110,7 +1125,7 @@
 	};//End unifykey
 };
 &efuse {
-	status = "ok";
+	status = "okay";
 };
 &i2c_a {
 	status = "okay";
@@ -1119,5 +1134,13 @@
 	status = "okay";
 };
 &uart_AO_B {
+	status = "okay";
+};
+
+&pwm_ef {
+	status = "okay";
+};
+
+&audio_data{
 	status = "okay";
 };

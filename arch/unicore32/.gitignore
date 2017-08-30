@@ -19,3 +19,4 @@ boot/compressed/piggy.S
 boot/compressed/piggy.gzip
 boot/compressed/vmlinux
 boot/compressed/vmlinux.lds
+

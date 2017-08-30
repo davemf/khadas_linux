@@ -37,6 +37,9 @@ struct meson_dwmac {
 
 static void meson6_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 {
+#ifdef CONFIG_AMLOGIC_ETH_PRIVE
+
+#else
 	struct meson_dwmac *dwmac = priv;
 	unsigned int val;
 #ifdef CONFIG_AMLOGIC_ETH_PRIVE
@@ -54,6 +57,7 @@ static void meson6_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 	}
 
 	writel(val, dwmac->reg);
+#endif
 }
 
 #ifdef CONFIG_AMLOGIC_ETH_PRIVE
@@ -94,11 +98,14 @@ static void __iomem *network_interface_setup(struct platform_device *pdev)
 	pr_debug("REG0:REG1 = %p :%p\n", PREG_ETH_REG0, PREG_ETH_REG1);
 
 	if (!of_property_read_u32(np, "internal_phy", &internal_phy)) {
+		res = NULL;
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (res) {
 		addr = devm_ioremap_resource(dev, res);
 		PREG_ETH_REG2 = addr;
 		PREG_ETH_REG3 = addr + 4;
 		PREG_ETH_REG4 = addr + 8;
+		}
 		if (internal_phy == 1) {
 			pr_debug("internal phy\n");
 			/* Get mec mode & ting value  set it in cbus2050 */
@@ -107,6 +114,7 @@ static void __iomem *network_interface_setup(struct platform_device *pdev)
 			} else {
 				writel(mc_val, PREG_ETH_REG0);
 			}
+			if (res) {
 			writel(ETH_REG2_REVERSED | INTERNAL_PHY_ID,
 			       PREG_ETH_REG2);
 			writel(PHY_ENABLE | USE_PHY_IP | CLK_IN_EN |
@@ -114,20 +122,25 @@ static void __iomem *network_interface_setup(struct platform_device *pdev)
 					ETH_REG3_19_RESVERD	| CFG_PHY_ADDR |
 					CFG_MODE | CFG_EN_HIGH |
 					ETH_REG3_2_RESERVED, PREG_ETH_REG3);
+			}
 			pin_ctl = devm_pinctrl_get_select
 				(&pdev->dev, "internal_eth_pins");
 		} else {
 			/* Get mec mode & ting value  set it in cbus2050 */
 			if (of_property_read_u32(np, "mc_val_external_phy",
-						 &mc_val))
+						 &mc_val)) {
+			} else {
 				writel(mc_val, PREG_ETH_REG0);
+			}
 			if (!of_property_read_u32(np, "cali_val", &cali_val))
 				writel(cali_val, PREG_ETH_REG1);
+			if (res) {
 			writel(ETH_REG2_REVERSED | INTERNAL_PHY_ID,
 			       PREG_ETH_REG2);
 			writel(CLK_IN_EN | ETH_REG3_19_RESVERD	|
 					CFG_PHY_ADDR | CFG_MODE | CFG_EN_HIGH |
 					ETH_REG3_2_RESERVED, PREG_ETH_REG3);
+			}
 			/* pull reset pin for resetting phy  */
 			gdesc = gpiod_get(&pdev->dev, "rst_pin",
 					  GPIOD_FLAGS_BIT_DIR_OUT);
@@ -231,7 +244,7 @@ static struct platform_driver meson6_dwmac_driver = {
 	.remove = stmmac_pltfr_remove,
 #ifdef CONFIG_PM
 	.shutdown = stmmac_pltfr_shutdown,
-#endif
+#endif	   
 	.driver = {
 		.name           = "meson6-dwmac",
 		.pm		= &stmmac_pltfr_pm_ops,

@@ -62,13 +62,13 @@ obj-$(CONFIG_AMLOGIC_SMARTCARD)		+= smartcard/
 
 obj-$(CONFIG_AMLOGIC_CEC)		+= cec/
 
-obj-$(CONFIG_AMLOGIC_SECURITY_KEY)	+= securitykey/
-
-obj-$(CONFIG_AMLOGIC_KEY_MANAGE)    += key_manage/
+obj-$(CONFIG_AMLOGIC_UNIFYKEY)    += unifykey/
 
 obj-$(CONFIG_AMLOGIC_TEMP_SENSOR)	+= thermal/
 
 obj-$(CONFIG_AMLOGIC_AUDIO_DSP)	+= audiodsp/
+
+obj-$(CONFIG_AMLOGIC_AUDIO_INFO) += audioinfo/
 
 obj-$(CONFIG_AMLOGIC_SUSPEND)	+= pm/
 
@@ -78,8 +78,22 @@ obj-$(CONFIG_AMLOGIC_JTAG)		+= jtag/
 
 obj-$(CONFIG_AMLOGIC_WDT)		+= watchdog/
 
+obj-$(CONFIG_AMLOGIC_ESM) += esm/
+
 obj-$(CONFIG_AMLOGIC_BT_DEVICE)		+= bluetooth/
 
 obj-$(CONFIG_AMLOGIC_WIFI)      += wifi/
 
 obj-$(CONFIG_AMLOGIC_POWER)		+= power/
+
+obj-$(CONFIG_AMLOGIC_PCIE)      += pci/
+
+obj-$(CONFIG_AMLOGIC_IRBLASTER) += irblaster/
+
+obj-$(CONFIG_AMLOGIC_IIO)       += iio/
+
+obj-$(CONFIG_AMLOGIC_DDR_WINDOW_TOOL)       += ddr_window/
+
+obj-$(CONFIG_DRM_MESON)	+= drm/
+
+obj-$(CONFIG_AMLOGIC_M8B_SM) += secure_monitor/

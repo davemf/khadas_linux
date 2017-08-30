@@ -85,6 +85,7 @@ enum meson_reg_type {
  * @name:	bank name
  * @first:	first pin of the bank
  * @last:	last pin of the bank
+ * @irq:	irq base number of the bank
  * @regs:	array of register descriptors
  *
  * A bank represents a set of pins controlled by a contiguous set of
@@ -96,6 +97,7 @@ struct meson_bank {
 	const char *name;
 	unsigned int first;
 	unsigned int last;
+	int irq;
 	struct meson_reg_desc regs[NUM_REG];
 };
 
@@ -182,15 +184,11 @@ struct meson_pinctrl_data {
 	const struct pinctrl_pin_desc *pins;
 	struct meson_pmx_group *groups;
 	struct meson_pmx_func *funcs;
+	const struct meson_desc_pin *meson_pins;
 	struct meson_domain_data *domain_data;
 	unsigned int num_pins;
 	unsigned int num_groups;
 	unsigned int num_funcs;
-};
-
-struct meson_pinctrl_private {
-	struct meson_pinctrl_data *pinctrl_data;
-	struct irq_chip *irq_chip;
 };
 
 struct meson_pinctrl {
@@ -201,7 +199,45 @@ struct meson_pinctrl {
 	struct meson_domain *domain;
 };
 
+struct meson_pinctrl_private {
+	unsigned char pinmux_type;
+	struct meson_pinctrl_data *pinctrl_data;
+	struct irq_chip *irq_chip;
+	int (*init)(struct meson_pinctrl *pc);
+};
+
+struct meson_desc_function {
+	const char *name;
+	unsigned char muxval;
+};
+
+struct meson_desc_pin {
+	struct pinctrl_pin_desc pin;
+	unsigned int reg;
+	unsigned int bit;
+	struct meson_desc_function *functions;
+};
+
+/* enum PINMUX_TYPE - pinmux type
+ *
+ *@PINMUX_V1: use more bits that maybe from different registers to choose
+ * function for per gpio
+ *@PINMUX_V2: use continuous 4bit to choose function for per gpio
+ *
+ */
+enum PINMUX_TYPE {
+	PINMUX_V1 = 0,
+	PINMUX_V2,
+	PINMUX_MAX,
+};
+
+#define CMD_TEST_N_DIR 0x82000046
+#define TEST_N_OUTPUT  1
+
 #define PIN(x, b)	(b + x)
+#define MESON_MUX_V2_MASK(x) (0xf << x)
+#define MESON_MUX_V2_VAL(y, x) ((y & 0xf) << x)
+#define MESON_PIN(x, b) PINCTRL_PIN(PIN(x, b), #x)
 
 #define GROUP(grp, r, b)						\
 	{								\
@@ -227,11 +263,12 @@ struct meson_pinctrl {
 		.num_groups = ARRAY_SIZE(fn ## _groups),		\
 	}
 
-#define BANK(n, f, l, per, peb, pr, pb, dr, db, or, ob, ir, ib)		\
+#define BANK(n, f, l, i, per, peb, pr, pb, dr, db, or, ob, ir, ib)\
 	{								\
 		.name	= n,						\
 		.first	= f,						\
 		.last	= l,						\
+		.irq    = i,						\
 		.regs	= {						\
 			[REG_PULLEN]	= { per, peb },			\
 			[REG_PULL]	= { pr, pb },			\
@@ -241,7 +278,20 @@ struct meson_pinctrl {
 		},							\
 	}
 
-#define MESON_PIN(x, b) PINCTRL_PIN(PIN(x, b), #x)
+#define MESON_FUNCTION(_val, _name)				\
+	{							\
+		.name = _name,					\
+		.muxval = _val,					\
+	}
+
+#define MESON_PINCTRL_PIN(_pin, r, b, ...)		\
+	{							\
+		.pin = _pin,					\
+		.reg = r,				\
+		.bit = b,				\
+		.functions = (struct meson_desc_function[]){	\
+			__VA_ARGS__, { } },			\
+	}
 
 extern struct meson_pinctrl_data meson8_cbus_pinctrl_data;
 extern struct meson_pinctrl_data meson8_aobus_pinctrl_data;
@@ -249,3 +299,9 @@ extern struct meson_pinctrl_data meson8b_cbus_pinctrl_data;
 extern struct meson_pinctrl_data meson8b_aobus_pinctrl_data;
 extern struct meson_pinctrl_data meson_gxl_periphs_pinctrl_data;
 extern struct meson_pinctrl_data meson_gxl_aobus_pinctrl_data;
+extern struct meson_pinctrl_data meson_axg_periphs_pinctrl_data;
+extern struct meson_pinctrl_data meson_axg_aobus_pinctrl_data;
+
+extern int meson_gxl_aobus_init(struct meson_pinctrl *pc);
+extern int meson_gxl_periphs_init(struct meson_pinctrl *pc);
+extern int meson_axg_aobus_init(struct meson_pinctrl *pc);

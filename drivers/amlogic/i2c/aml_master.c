@@ -56,6 +56,12 @@ static struct aml_i2c_platform *aml_i2c_properties_list;
 static int i2c_speed[] = {AML_I2C_SPEED_50K, AML_I2C_SPEED_100K,
 	AML_I2C_SPEED_200K, AML_I2C_SPEED_300K, AML_I2C_SPEED_400K};
 
+#define I2C_COUNTERVAIL  14
+static const int auto_test_speed[] = {AML_I2C_SPEED_50K, AML_I2C_SPEED_100K,
+	AML_I2C_SPEED_200K, AML_I2C_SPEED_300K, AML_I2C_SPEED_400K,
+	AML_I2C_SPEED_1000K, AML_I2C_SPEED_2000K, AML_I2C_SPEED_3000K,
+	AML_I2C_SPEED_3400K};
+
 #define aml_i2c_dbg(i2c, fmt, args...)  { if (i2c->i2c_debug) \
 	  pr_info("[i2c@%d] " fmt, i2c->master_no, ## args); }
 #define aml_i2c_dump(i2c) \
@@ -79,6 +85,7 @@ static void aml_i2c_set_clk(struct aml_i2c *i2c, unsigned int speed)
 {
 	unsigned int i2c_clock_set;
 	unsigned int sys_clk_rate;
+	unsigned int i2c_standard_time;
 	/* struct clk *sys_clk; */
 	struct aml_i2c_reg_ctrl *ctrl;
 
@@ -88,25 +95,34 @@ static void aml_i2c_set_clk(struct aml_i2c *i2c, unsigned int speed)
 	/* sys_clk_rate = get_mpeg_clk(); */
 
 	i2c_clock_set = sys_clk_rate / speed;
+
+	/*i2c_standard_time: set for i2c T_high/T_low standard*/
+	if (speed >= 1000000)
+		i2c_standard_time = 5;
+	else
+		i2c_standard_time = 20;
 	if (get_meson_cpu_version(MESON_CPU_VERSION_LVL_MAJOR)
 		> MESON_CPU_MAJOR_ID_GXBB) {
 		i2c_clock_set >>= 1;
 		ctrl = (struct aml_i2c_reg_ctrl *)&(i2c->master_regs->i2c_ctrl);
 		if (i2c_clock_set > 0xfff)
 			i2c_clock_set = 0xfff;
-		ctrl->clk_delay = i2c_clock_set & 0x3ff;
-		ctrl->unused.b.clk_delay_ext = i2c_clock_set >> 10;
+
+		ctrl->clk_delay =
+		(i2c_clock_set - I2C_COUNTERVAIL - i2c_standard_time*2) & 0x3ff;
+		ctrl->clk_delay_ext =
+		(i2c_clock_set - I2C_COUNTERVAIL - i2c_standard_time*2) >> 10;
 		i2c->master_regs->i2c_slave_addr &= ~(0xfff<<16);
-		i2c->master_regs->i2c_slave_addr |= (i2c_clock_set>>1)<<16;
+		i2c->master_regs->i2c_slave_addr |=
+			((i2c_clock_set>>1) + i2c_standard_time)<<16;
 		i2c->master_regs->i2c_slave_addr |= 1<<28;
 		i2c->master_regs->i2c_slave_addr &= ~(0x3f<<8);
 		/* no filter on scl&sda */
 	} else{
 		i2c_clock_set >>= 2;
-
-	ctrl = (struct aml_i2c_reg_ctrl *)&(i2c->master_regs->i2c_ctrl);
-	ctrl->clk_delay = i2c_clock_set & AML_I2C_CTRL_CLK_DELAY_MASK;
-}
+		ctrl = (struct aml_i2c_reg_ctrl *)&(i2c->master_regs->i2c_ctrl);
+		ctrl->clk_delay = i2c_clock_set & AML_I2C_CTRL_CLK_DELAY_MASK;
+	}
 }
 
 static void aml_i2c_set_platform_data(struct aml_i2c *i2c,
@@ -254,6 +270,7 @@ static long aml_i2c_do_address(struct aml_i2c *i2c, unsigned int addr)
 		i2c->master_regs->i2c_slave_addr |= i2c->cur_slave_addr<<1;
 	} else
 		i2c->master_regs->i2c_slave_addr = i2c->cur_slave_addr<<1;
+
 	return 0;
 }
 
@@ -562,6 +579,8 @@ static int aml_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 {
 	struct aml_i2c *i2c = i2c_get_adapdata(i2c_adap);
 	struct i2c_msg *p = NULL;
+	static int local_err_i2c = 1;
+	static int pre_err_i2c = 1;
 	unsigned int i;
 	unsigned int ret = 0, speed = 0;
 
@@ -618,15 +637,19 @@ static int aml_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 			gpiod_direction_output(i2c->i2c_gdesc, !i);
 		}
 #endif
-		dev_err(&i2c_adap->dev,
-			"[aml_i2c_xfer] error ret = %d (%s)",
-			ret, ret == -EIO ? "-EIO" : "-ETIMEOUT");
-		dev_err(&i2c_adap->dev,
-			"token %d, master_no(%d) %dK addr 0x%x\n",
-			i2c->cur_token, i2c->master_no,
-			i2c->master_i2c_speed/1000,
-			i2c->cur_slave_addr);
-		aml_i2c_dump(i2c);
+		local_err_i2c = i2c->cur_slave_addr;
+		if (pre_err_i2c != local_err_i2c) {
+			dev_err(&i2c_adap->dev,
+				"[aml_i2c_xfer] error ret = %d (%s)",
+				ret, ret == -EIO ? "-EIO" : "-ETIMEOUT");
+			dev_err(&i2c_adap->dev,
+				"token %d, master_no(%d) %dK addr 0x%x\n",
+				i2c->cur_token, i2c->master_no,
+				i2c->master_i2c_speed/1000,
+				i2c->cur_slave_addr);
+			aml_i2c_dump(i2c);
+		}
+		pre_err_i2c = local_err_i2c;
 	}
 
 	mutex_unlock(i2c->lock);
@@ -747,6 +770,104 @@ err_arg:
 	return -1;
 }
 
+static int aml_i2c_auto_test(struct aml_i2c *i2c, unsigned int val)
+{
+	struct i2c_msg msgs, *msgp =  &msgs;
+	struct i2c_msg msgx[2], *msgz =  &msgx[0];
+	int msg_num = 0;
+	unsigned int addr = 0, wnum = 0, rnum = 0;
+	char wbuf1[5] = {0, 0xaa, 0x55, 0x88, 0x99};
+	char wbufdef[5] = {0, 0xff, 0xff, 0xff, 0xff};
+	char rbuf[4] = {0};
+	char wbuf2 = 0;
+	int i;
+
+	if ((val) && (val <= 0x7f))
+		addr = val;
+	else
+		addr = 0x20;
+
+	wnum = 5;
+	if (wnum) {
+		msgp->flags = !I2C_M_RD;
+		msgp->addr	= addr;
+		msgp->len	= wnum;
+		msgp->buf	= wbuf1;
+		msg_num++;
+	}
+
+	if (i2c_transfer(&i2c->adap, &msgs, msg_num) != msg_num)
+		return -1;
+
+	msleep(200);
+	msg_num = 0;
+	wnum = 1;
+	rnum = 4;
+	if (wnum) {
+		msgz->flags = !I2C_M_RD;
+		msgz->addr	= addr;
+		msgz->len	= wnum;
+		msgz->buf	= &wbuf2;
+		msg_num++;
+		msgz++;
+	}
+	if (rnum) {
+		msgz->flags = I2C_M_RD;
+		msgz->addr	= addr;
+		msgz->len	= rnum;
+		msgz->buf	= rbuf;
+		msg_num++;
+		msgz++;
+	}
+
+	if (i2c_transfer(&i2c->adap, &msgx[0], msg_num) == msg_num) {
+		for (i = 0; i < rnum; i++) {
+			if (wbuf1[i+1] != rbuf[i]) {
+				pr_info("i2c auto test receive buff error!\n");
+				return -1;
+			}
+		}
+	} else
+		return -1;
+
+	msleep(200);
+	/* fill up default date*/
+	wnum = 5;
+	if (wnum) {
+		msgp->flags = !I2C_M_RD;
+		msgp->addr	= addr;
+		msgp->len	= wnum;
+		msgp->buf	= wbufdef;
+		msg_num++;
+	}
+	if (i2c_transfer(&i2c->adap, &msgs, msg_num) != msg_num)
+		return -1;
+
+	msleep(100);
+	return 0;
+}
+
+static int aml_i2c_auto_test_loop(struct aml_i2c *i2c, unsigned int val)
+{
+	int i, ret;
+	int num = ARRAY_SIZE(auto_test_speed);
+
+	for (i = 0; i < num; i++) {
+		mutex_lock(i2c->lock);
+		i2c->master_i2c_speed = auto_test_speed[i];
+		mutex_unlock(i2c->lock);
+		ret = aml_i2c_auto_test(i2c, val);
+		if (ret < 0) {
+			pr_info("i2c auto test error at %d KHZ\n",
+				auto_test_speed[i]/1000);
+			return -1;
+		}
+		pr_info("i2c speed %d KHZ test ok!\n", auto_test_speed[i]/1000);
+	}
+	pr_info("I2C auto test master and slave ok!\n");
+	return 0;
+}
+
 #ifdef ENABLE_GPIO_TRIGGER
 static int aml_i2c_set_trig_gpio(struct aml_i2c *i2c, char *gpio_name)
 {
@@ -850,6 +971,10 @@ static ssize_t store_aml_i2c(struct class *class,
 			"enable" : "disable");
 	}
 
+	else if (!strcmp(attr->attr.name, "auto_test")) {
+		aml_i2c_auto_test_loop(i2c, val);
+	}
+
 	else if (!strcmp(attr->attr.name, "slave")) {
 		aml_i2c_test_slave(i2c, argn, argv);
 	}
@@ -867,6 +992,7 @@ static struct class_attribute i2c_class_attrs[] = {
 	__ATTR(mode, 0644, show_aml_i2c, store_aml_i2c),
 	__ATTR(debug, 0644, show_aml_i2c, store_aml_i2c),
 	__ATTR(slave, 0644, show_aml_i2c, store_aml_i2c),
+	__ATTR(auto_test, 0644, show_aml_i2c, store_aml_i2c),
 #ifdef ENABLE_GPIO_TRIGGER
 	__ATTR(trig_gpio, 0644, show_aml_i2c, store_aml_i2c),
 #endif
@@ -1052,7 +1178,7 @@ static int aml_i2c_probe(struct platform_device *pdev)
 	if (i2c->adap.nr)
 		sprintf((char *)i2c->cls.name, "i2c%d", i2c->adap.nr);
 	else
-		sprintf((char *)i2c->cls.name, "i2c");
+		sprintf((char *)i2c->cls.name, "i2c0");
 	i2c->cls.class_attrs = i2c_class_attrs;
 	ret = class_register(&i2c->cls);
 	if (ret)

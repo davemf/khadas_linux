@@ -6,8 +6,6 @@
 
 obj-$(CONFIG_AMLOGIC_INPUT_KEYBOARD) += keyboard/
 
-obj-$(CONFIG_AMLOGIC_SARADC) += saradc/
-
 obj-$(CONFIG_AMLOGIC_REMOTE) += remote/
 
 obj-$(CONFIG_AMLOGIC_INPUT) += gpio_key/

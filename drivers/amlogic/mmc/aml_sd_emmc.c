@@ -40,7 +40,7 @@
 #include <linux/amlogic/cpu_version.h>
 #include <linux/mmc/emmc_partitions.h>
 #include <linux/amlogic/amlsd.h>
-
+#include <linux/amlogic/aml_sd_emmc_v3.h>
 struct mmc_host *sdio_host;
 
 static unsigned int log2i(unsigned int val)
@@ -191,6 +191,9 @@ static int aml_cali_auto(struct mmc_host *mmc, struct cali_data *c_data)
 		pdata->c_ctrl.line_x = line_x;
 		/* for each delay index! */
 		for (dly_tmp = 0; dly_tmp < MAX_DELAY_CNT; dly_tmp++) {
+			max_cali_count = 0;
+			max_cali_i = 0;
+			line_delay = 0;
 			line_delay = dly_tmp << (4 * line_x);
 			writel(line_delay, host->base + SD_EMMC_DELAY);
 			pdata->caling = 1;
@@ -492,7 +495,6 @@ static int aml_sd_emmc_execute_calibration(struct mmc_host *mmc,
 	u8 i;
 #endif
 
-	memset(&c_data, 0, sizeof(struct cali_data));
 #ifdef SD_EMMC_CLK_CTRL
 	vclk = readl(host->base + SD_EMMC_CLOCK);
 	clk_div_tmp = clkc->div;
@@ -509,6 +511,7 @@ static int aml_sd_emmc_execute_calibration(struct mmc_host *mmc,
 	pdata->c_ctrl.max_index = (vclk & 0x3f) - 1;
 
 _cali_retry:
+	memset(&c_data, 0, sizeof(struct cali_data));
 	c_data.base_index_min = pdata->c_ctrl.max_index + 1;
 	c_data.base_index_max = 0;
 	pr_info("%s: trying cali %d-th time(s)\n",
@@ -577,7 +580,7 @@ _cali_retry:
 }
 #endif
 
-static u32 aml_sd_emmc_tuning_transfer(struct mmc_host *mmc,
+u32 aml_sd_emmc_tuning_transfer(struct mmc_host *mmc,
 	u32 opcode, const u8 *blk_pattern, u8 *blk_test, u32 blksz)
 {
 	struct amlsd_host *host = mmc_priv(mmc);
@@ -710,7 +713,7 @@ static int aml_tuning_adj(struct mmc_host *mmc, u32 opcode,
 }
 
 /* TODO....., based on new tuning function */
-static int aml_sd_emmc_execute_tuning_(struct mmc_host *mmc, u32 opcode,
+int aml_sd_emmc_execute_tuning_(struct mmc_host *mmc, u32 opcode,
 					struct aml_tuning_data *tuning_data,
 					u32 adj_win_start)
 {
@@ -1226,7 +1229,7 @@ static int meson_mmc_clk_set_rate(struct amlsd_host *host,
 	return ret;
 }
 
-static int aml_emmc_clktree_init(struct amlsd_host *host)
+int aml_emmc_clktree_init(struct amlsd_host *host)
 {
 	int i, ret = 0;
 	unsigned int f_min = UINT_MAX, mux_parent_count = 0;
@@ -1240,6 +1243,8 @@ static int aml_emmc_clktree_init(struct amlsd_host *host)
 		ret = PTR_ERR(host->core_clk);
 		return ret;
 	}
+	pr_info("core->rate: %lu\n", clk_get_rate(host->core_clk));
+	pr_info("core->name: %s\n", __clk_get_name(host->core_clk));
 	ret = clk_prepare_enable(host->core_clk);
 	if (ret)
 		return ret;
@@ -1257,6 +1262,8 @@ static int aml_emmc_clktree_init(struct amlsd_host *host)
 		}
 		host->mux_parent_rate[i] = clk_get_rate(host->mux_parent[i]);
 		mux_parent_names[i] = __clk_get_name(host->mux_parent[i]);
+		pr_info("rate: %lu, name: %s\n",
+			host->mux_parent_rate[i], mux_parent_names[i]);
 		mux_parent_count++;
 		if (host->mux_parent_rate[i] < f_min)
 			f_min = host->mux_parent_rate[i];
@@ -1272,6 +1279,7 @@ static int aml_emmc_clktree_init(struct amlsd_host *host)
 
 	/* create the mux */
 	snprintf(clk_name, sizeof(clk_name), "%s#mux", dev_name(host->dev));
+	pr_info("clk_name: %s\n", clk_name);
 	init.name = clk_name;
 	init.ops = &clk_mux_ops;
 	init.flags = 0;
@@ -1306,7 +1314,8 @@ static int aml_emmc_clktree_init(struct amlsd_host *host)
 		return PTR_ERR(host->cfg_div_clk);
 
 	ret = clk_prepare_enable(host->cfg_div_clk);
-
+	pr_info("[%s] clock: 0x%x\n",
+		__func__, readl(host->base + SD_EMMC_CLOCK_V3));
 	return ret;
 }
 
@@ -1324,6 +1333,7 @@ static int meson_mmc_clk_init(struct amlsd_host *host)
 	struct sd_emmc_config *pconf = (struct sd_emmc_config *)&vconf;
 	struct amlsd_platform *pdata = host->pdata;
 
+	writel(0, host->base + SD_EMMC_CLOCK);
 	ret = aml_emmc_clktree_init(host);
 	if (ret)
 		return ret;
@@ -1418,7 +1428,7 @@ static void aml_sd_emmc_set_timing(
 }
 
 /*setup bus width, 1bit, 4bits, 8bits*/
-static void aml_sd_emmc_set_buswidth(
+void aml_sd_emmc_set_buswidth(
 		struct amlsd_host *host, u32 busw_ios)
 {
 	u32 vconf;
@@ -1662,7 +1672,7 @@ err_exit:
  *a linear buffer and an SG list  for amlogic,
  * We don't disable irq in this function
  **/
-static int aml_sd_emmc_post_dma(struct amlsd_host *host,
+int aml_sd_emmc_post_dma(struct amlsd_host *host,
 		struct mmc_request *mrq)
 {
 	struct mmc_data *data = NULL;
@@ -1718,7 +1728,7 @@ static void aml_sd_emmc_check_sdio_irq(struct amlsd_host *host)
 		}
 	}
 }
-static int meson_mmc_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
+int meson_mmc_request_done(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct amlsd_host *host = mmc_priv(mmc);
 	struct amlsd_platform *pdata = host->pdata;
@@ -2023,7 +2033,7 @@ static void meson_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	spin_unlock_irqrestore(&host->mrq_lock, flags);
 }
 
-static int meson_mmc_read_resp(struct mmc_host *mmc, struct mmc_command *cmd)
+int meson_mmc_read_resp(struct mmc_host *mmc, struct mmc_command *cmd)
 {
 	struct amlsd_host *host = mmc_priv(mmc);
 	struct sd_emmc_desc_info *desc_info =
@@ -2684,6 +2694,19 @@ static const struct mmc_host_ops meson_mmc_ops = {
 	.hw_reset = aml_emmc_hw_reset,
 };
 
+static const struct mmc_host_ops meson_mmc_ops_v3 = {
+	.request = meson_mmc_request,
+	.set_ios = meson_mmc_set_ios_v3,
+	.enable_sdio_irq = aml_sd_emmc_enable_sdio_irq,
+	.get_cd = meson_mmc_get_cd,
+	.get_ro = aml_sd_emmc_get_ro,
+	.start_signal_voltage_switch = aml_signal_voltage_switch,
+	.card_busy = aml_sd_emmc_card_busy,
+	.execute_tuning = aml_mmc_execute_tuning_v3,
+	.hw_reset = aml_emmc_hw_reset,
+	.post_hs400_timming = aml_post_hs400_timming,
+};
+
 static void aml_reg_print(struct amlsd_host *host)
 {
 	struct amlsd_platform *pdata = host->pdata;
@@ -2718,7 +2741,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	host->pdev = pdev;
 	host->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, host);
-
+	if (cpu_after_eq(MESON_CPU_MAJOR_ID_TXLX))
+		host->ctrl_ver = 3;
 	host->pinmux_base = ioremap(0xc8834400, 0x200);
 	res_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	host->base = devm_ioremap_resource(&pdev->dev, res_mem);
@@ -2733,10 +2757,14 @@ static int meson_mmc_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto free_host;
 	}
-
-	ret = devm_request_threaded_irq(&pdev->dev, host->irq,
-					meson_mmc_irq, meson_mmc_irq_thread,
-					IRQF_SHARED, "meson-aml-mmc", host);
+	if (host->ctrl_ver >= 3)
+		ret = devm_request_threaded_irq(&pdev->dev, host->irq,
+			meson_mmc_irq, meson_mmc_irq_thread_v3,
+			IRQF_SHARED, "meson-aml-mmc", host);
+	else
+		ret = devm_request_threaded_irq(&pdev->dev, host->irq,
+			meson_mmc_irq, meson_mmc_irq_thread,
+			IRQF_SHARED, "meson-aml-mmc", host);
 	if (ret)
 		goto free_host;
 
@@ -2769,7 +2797,10 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	host->init_flag = 1;
 	host->is_gated = false;
 
-	ret = meson_mmc_clk_init(host);
+	if (host->ctrl_ver >= 3)
+		ret = meson_mmc_clk_init_v3(host);
+	else
+		ret = meson_mmc_clk_init(host);
 	if (ret)
 		goto free_host;
 
@@ -2782,7 +2813,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	if (amlsd_get_platform_data(pdev, pdata, mmc, 0))
 		mmc_free_host(mmc);
 
-	if (aml_card_type_mmc(pdata))
+	if (aml_card_type_mmc(pdata)
+			&& (host->ctrl_ver < 3))
 		/**set emmc tx_phase regs here base on dts**/
 		aml_sd_emmc_tx_phase_set(host);
 
@@ -2790,6 +2822,10 @@ static int meson_mmc_probe(struct platform_device *pdev)
 
 	if (pdata->caps & MMC_PM_KEEP_POWER)
 		mmc->pm_caps |= MMC_PM_KEEP_POWER;
+	if (pdata->base != 0) {
+		iounmap(host->pinmux_base);
+		host->pinmux_base = ioremap(pdata->base, 0x200);
+	}
 	host->init_flag = 1;
 	host->version = AML_MMC_VERSION;
 	host->pinctrl = NULL;
@@ -2803,8 +2839,8 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	mmc->max_seg_size = mmc->max_req_size;
 	mmc->max_segs = 1024;
 	mmc->ocr_avail = pdata->ocr_avail;
-	mmc->caps |= pdata->caps;
-	mmc->caps2 |= pdata->caps2;
+	mmc->caps = pdata->caps;
+	mmc->caps2 = pdata->caps2;
 	mmc->f_min = pdata->f_min;
 	mmc->f_max = pdata->f_max;
 	mmc->max_current_180 = 300; /* 300 mA in 1.8V */
@@ -2836,7 +2872,10 @@ static int meson_mmc_probe(struct platform_device *pdev)
 
 	if (pdata->port_init)
 		pdata->port_init(pdata);
-	mmc->ops = &meson_mmc_ops;
+	if (host->ctrl_ver >= 3)
+		mmc->ops = &meson_mmc_ops_v3;
+	else
+		mmc->ops = &meson_mmc_ops;
 	aml_reg_print(host);
 	ret = mmc_add_host(mmc);
 	if (ret) { /* error */

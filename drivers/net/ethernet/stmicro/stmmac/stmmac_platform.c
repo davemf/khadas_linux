@@ -47,6 +47,7 @@ static unsigned char chartonum(char c)
 	return 0;
 }
 int chip_simulation = 0;
+
 static int __init get_chip_simulation(char *chip_simulation_status)
 {
 	chip_simulation = chartonum(chip_simulation_status[0]);
@@ -64,8 +65,8 @@ static int __init mac_addr_set(char *line)
 	}
 	memcpy(DEFMAC, mac, 6);
 	pr_debug("uboot setup mac-addr: %x:%x:%x:%x:%x:%x\n",
-			DEFMAC[0], DEFMAC[1], DEFMAC[2], DEFMAC[3], DEFMAC[4],
-							DEFMAC[5]);
+		DEFMAC[0], DEFMAC[1], DEFMAC[2], DEFMAC[3], DEFMAC[4],
+				DEFMAC[5]);
 	g_mac_addr_setup++;
 
 	return 1;
@@ -250,7 +251,7 @@ static int setup_mac_addr(struct platform_device *pdev, const char **mac)
 #else
 		*mac = of_get_mac_address(np);
 #endif
-		return 0;
+	return 0;
 }
 
 /**
@@ -404,6 +405,7 @@ void stmmac_remove_config_dt(struct platform_device *pdev,
 	if (of_phy_is_fixed_link(np))
 		of_phy_deregister_fixed_link(np);
 	of_node_put(plat->phy_node);
+	of_node_put(plat->mdio_node);
 }
 #else
 struct plat_stmmacenet_data *

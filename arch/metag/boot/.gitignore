@@ -2,3 +2,4 @@ vmlinux*
 uImage*
 ramdisk.*
 *.dtb*
+

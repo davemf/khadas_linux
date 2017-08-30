@@ -76,13 +76,13 @@ source "drivers/amlogic/smartcard/Kconfig"
 
 source "drivers/amlogic/cec/Kconfig"
 
-source "drivers/amlogic/securitykey/Kconfig"
-
-source "drivers/amlogic/key_manage/Kconfig"
+source "drivers/amlogic/unifykey/Kconfig"
 
 source "drivers/amlogic/thermal/Kconfig"
 
 source "drivers/amlogic/audiodsp/Kconfig"
+
+source "drivers/amlogic/audioinfo/Kconfig"
 
 source "drivers/amlogic/pm/Kconfig"
 
@@ -92,6 +92,8 @@ source "drivers/amlogic/jtag/Kconfig"
 
 source "drivers/amlogic/watchdog/Kconfig"
 
+source "drivers/amlogic/esm/Kconfig"
+
 source "drivers/amlogic/wifi/Kconfig"
 
 source "drivers/amlogic/bluetooth/Kconfig"
@@ -99,6 +101,18 @@ source "drivers/amlogic/bluetooth/Kconfig"
 source "drivers/amlogic/dvb/Kconfig"
 
 source "drivers/amlogic/power/Kconfig"
+
+source "drivers/amlogic/pci/Kconfig"
+
+source "drivers/amlogic/irblaster/Kconfig"
+
+source "drivers/amlogic/iio/Kconfig"
+
+source "drivers/amlogic/ddr_window/Kconfig"
+
+source "drivers/amlogic/drm/Kconfig"
+
+source "drivers/amlogic/secure_monitor/Kconfig"
 
 endmenu
 endif

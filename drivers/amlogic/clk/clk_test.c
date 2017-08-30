@@ -25,14 +25,11 @@
 #include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/module.h>
-#include <dt-bindings/clock/amlogic,gxl-clkc.h>
 
 #include "clkc.h"
-#include "gxl.h"
-
 
 static struct dentry *debugfs_root;
-
+#define NR_CLKS 221
 void usage(void)
 {
 	pr_info("\nclk_test:\n");
@@ -84,7 +81,7 @@ static ssize_t clk_test_write(struct file *file, const char __user *userbuf,
 
 	buf[count] = 0;
 
-	ret = sscanf(buf, "%s %s %lu", get_set, clk_name, &rate);
+	ret = sscanf(buf, "%3s %31s %lu", get_set, clk_name, &rate);
 	switch (ret) {
 	case 1:
 		pr_err("%s error usage!\n", __func__);

@@ -47,9 +47,11 @@
 		ranges;
 		/* global autoconfigured region for contiguous allocations */
 		secmon_reserved:linux,secmon {
-			compatible = "amlogic, aml_secmon_memory";
-			reg = <0x0 0x10000000 0x0 0x200000>;
-			no-map;
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x400000>;
+			alignment = <0x0 0x400000>;
+			alloc-ranges = <0x0 0x05000000 0x0 0x400000>;
 		};
 		secos_reserved:linux,secos {
 			status = "disable";
@@ -76,17 +78,23 @@
 		interrupts = <	0 68 4>;
 		irq_trigger_type = "GPIO_IRQ_LOW";
 		power_on_pin = <&gpio       GPIOX_6       GPIO_ACTIVE_HIGH>;
-		pinctrl-names = "wifi_32k_pins";
+		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_32k_pins>;
-//		pwm_config = <&wifi_pwm_conf>;
+		pwm_config = <&wifi_pwm_conf>;
 	};
 
-//	wifi_pwm_conf:wifi_pwm_conf{
-//		pwm_channel1 = <PWM_E>;
-//		pwm_channel2 = <PWM_E2>;
-//		pwm_channel1_conf = <30541 15270 6>;
-//		pwm_channel2_conf = <30518 15259 9>;
-//	};
+	wifi_pwm_conf:wifi_pwm_conf{
+		pwm_channel1_conf {
+			pwms = <&pwm_ef MESON_PWM_0 30040 0>;
+			duty-cycle = <15020>;
+			times = <8>;
+		};
+		pwm_channel2_conf {
+			pwms = <&pwm_ef MESON_PWM_2 30030 0>;
+			duty-cycle = <15015>;
+			times = <12>;
+		};
+	};
 
 	sd_emmc_c: emmc@d0074000 {
 		status = "disabled";
@@ -242,6 +250,18 @@
 		pinctrl-1 = <&all_nand_pins>;
 		pinctrl-2 = <&nand_cs_pins>;
 		device_id = <0>;
+
+		/*fip/tpl configurations, must be same
+		 * with uboot if bl_mode was set as 1
+		 * bl_mode: 0 compact mode; 1 descrete mode
+		 * if bl_mode was set as 1, fip configeration will work
+		 */
+		bl_mode = <1>;
+		/*copy count of fip*/
+		fip_copies = <4>;
+		/*size of each fip copy */
+		fip_size = <0x200000>;
+		nand_clk_ctrl = <0xd0074000>;
 		plat-names = "bootloader","nandnormal";
 		plat-num = <2>;
 		plat-part-0 = <&bootloader>;
@@ -271,6 +291,19 @@
 			rb_detect = <1>;
 		};
 		nand_partitions:nand_partition{
+			/*
+			 * if bl_mode is 1, tpl size was generate by
+			 * fip_copies * fip_size which
+			 * will not skip bad when calculating
+			 * the partition size;
+			 *
+			 * if bl_mode is 0,
+			 * tpl partition must be comment out.
+			 */
+			tpl{
+				offset=<0x0 0x0>;
+				size=<0x0 0x0>;
+			};
 			logo{
 				offset=<0x0 0x0>;
 				size=<0x0 0x200000>;
@@ -877,6 +910,11 @@
 &efuse {
 	status = "ok";
 };
+
+&pwm_ef {
+	status = "okay";
+};
+
 &audio_i2s_pins {
 	mux {
 		groups = "i2s_am_clk",

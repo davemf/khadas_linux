@@ -40,6 +40,29 @@
 			compatible = "amlogic, pm-m8b-reserve";
 			reg = <0x04f00000 0x100000>;
 		};
+
+		secos_reserved:linux,secos {
+			status = "disabled";
+			compatible = "amlogic, aml_secos_memory";
+			reg = <0x06100000 0x3000000>;
+			no-map;
+		};
+	};
+
+	bt-dev{
+		compatible = "amlogic, bt-dev";
+		dev_name = "bt-dev";
+		status = "okay";
+		gpio_reset =  <&gpio       GPIOX_20       GPIO_ACTIVE_HIGH>;
+	};
+	wifi{
+		compatible = "amlogic, aml_wifi";
+		dev_name = "aml_wifi";
+		status = "okay";
+		interrupt_pin = <&gpio       GPIOX_21       GPIO_ACTIVE_HIGH>;
+		interrupts = <  0 68 4>;
+		irq_trigger_type = "GPIO_IRQ_HIGH";
+		power_on_pin = <&gpio       GPIOX_11       GPIO_ACTIVE_HIGH>;
 	};
 
 	sdio {
@@ -87,7 +110,7 @@
 			gpio_dat3 = <&gpio CARD_4 GPIO_ACTIVE_HIGH>;
 			jtag_pin = <&gpio CARD_0 GPIO_ACTIVE_HIGH>;
 			gpio_cd = <&gpio CARD_6 GPIO_ACTIVE_HIGH>;
-			gpio_ro = <&gpio GPIODV_25 GPIO_ACTIVE_HIGH>;
+			/*gpio_ro = <&gpio GPIODV_25 GPIO_ACTIVE_HIGH>;*/
 			card_type = <5>;
 			/* 0:unknown,
 			 * 1:mmc card(include eMMC),
@@ -103,7 +126,7 @@
 	sdhc {
 		compatible = "amlogic, aml_sdhc";
 		dev_name = "aml_sdhc.0";
-		status = "disable";
+		status = "okay";
 		interrupts = <0 78 1>;
 		reg = <0xc1108e00 0x3c>;
 		pinctrl-names = "sdhc_sd_clk_cmd_pins",
@@ -121,42 +144,6 @@
 		clocks = <&clkc CLKID_SDHC>,
 			   <&clkc CLKID_FCLK_DIV3>;
 		clock-names = "core", "div3";
-
-		emmc {
-			status = "okay";
-			port = <5>;
-			/* 0:sdio_a,
-			 * 1:sdio_b,
-			 * 2:sdio_c,
-			 * 3:sdhc_a,
-			 * 4:sdhc_b,
-			 * 5:sdhc_c
-			 */
-			pinname = "emmc";
-			ocr_avail = <0x00200080>;
-			/* 3.3:0x200000, 1.8+3.3:0x00200080 */
-			caps = "MMC_CAP_8_BIT_DATA",
-				 "MMC_CAP_MMC_HIGHSPEED",
-				 "MMC_CAP_SD_HIGHSPEED",
-				 "MMC_CAP_NONREMOVABLE",
-				 "MMC_CAP_ERASE",
-				 "MMC_CAP_HW_RESET";
-			caps2 = "MMC_CAP2_HS200_1_8V_SDR";
-			f_min = <300000>;
-			f_max = <100000000>;
-			max_req_size = <0x20000>; /* 128KB */
-			gpio_dat3 = <&gpio BOOT_3 GPIO_ACTIVE_HIGH>;
-			hw_reset = <&gpio BOOT_9 GPIO_ACTIVE_HIGH>;
-			card_type = <1>;
-			/* 0:unknown,
-			 * 1:mmc card(include eMMC),
-			 * 2:sd card(include tSD),
-			 * 3:sdio device(ie:sdio-wifi),
-			 * 4:SD combo (IO+mem) card,
-			 * 5:NON sdio device(means sd/mmc card),
-			 * other:reserved
-			 */
-		};
 
 		sdio {
 			status = "okay";
@@ -194,6 +181,56 @@
 			 */
 		};
 	};
+
+	unifykey{
+		compatible = "amlogic, unifykey";
+		status = "ok";
+
+		unifykey-num = <6>;
+		unifykey-index-0 = <&keysn_0>;
+		unifykey-index-1 = <&keysn_1>;
+		unifykey-index-2 = <&keysn_2>;
+		unifykey-index-3 = <&keysn_3>;
+		unifykey-index-4 = <&keysn_4>;
+		unifykey-index-5 = <&keysn_5>;
+
+		keysn_0: key_0{
+			key-name = "usid";
+			key-device = "nandkey";
+			key-dataformat = "allascii";
+			key-permit = "read","write","del";
+		};
+		keysn_1:key_1{
+			key-name = "mac";
+			key-device  = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+		keysn_2:key_2{
+			key-name = "hdcp";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+		keysn_3:key_3{
+			key-name = "secure_boot_set";
+			key-device = "efusekey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write";
+		};
+		keysn_4:key_4{
+			key-name = "mac_bt";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+		keysn_5:key_5{
+			key-name = "mac_wifi";
+			key-device = "nandkey";
+			key-dataformat = "hexdata";
+			key-permit = "read","write","del";
+		};
+	};//End unifykey
 	mtd_nand{
 		compatible = "amlogic, aml_mtd_nand";
 		dev_name = "mtdnand";
@@ -320,6 +357,8 @@
 		compatible = "amlogic, aml-thermal";
 		device_name = "thermal";
 		#thermal-sensor-cells = <1>;
+		io-channels = <&saradc SARADC_CH6>;
+		io-channel-names = "TEMP_CHAN";
 		cooling_devices {
 			cpufreq_cool_cluster0 {
 				min_state = <768000>;
@@ -535,6 +574,7 @@
 		mute_gpio-gpios = <&gpio GPIOH_5 0>;
 		mute_inv;
 		hp_disable;
+		i2sclk_disable_startup;
 		hp_paraments = <800 300 0 5 1>;
 		pinctrl-names = "aml_audio_i2s";
 		pinctrl-0 = <&audio_i2s_pins>;
@@ -574,4 +614,3 @@
 &i2c_ao {
 	status = "ok";
 };
-

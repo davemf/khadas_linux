@@ -18,8 +18,6 @@
 #ifndef __SPICC_H__
 #define __SPICC_H__
 
-#include <linux/amlogic/saradc.h>
-
 #define SPICC_FIFO_SIZE 16
 #define SPICC_DEFAULT_BIT_WIDTH 8
 #define SPICC_DEFAULT_SPEED_HZ 3000000
@@ -39,6 +37,13 @@
 #define SPICC_REG_LD_RADDR (12<<2)
 #define SPICC_REG_LD_WADDR (13<<2)
 #define SPICC_REG_ENHANCE_CNTL (14<<2)
+#define SPICC_REG_ENHANCE_CNTL1 (15<<2)
+
+#define bits_desc(reg_offset, bits_offset, bits_len) \
+	(((bits_len)<<24)|((bits_offset)<<16)|(reg_offset))
+#define of_mem_offset(bd) ((bd)&0xffff)
+#define of_bits_offset(bd) (((bd)>>16)&0xff)
+#define of_bits_len(bd) (((bd)>>24)&0xff)
 
 #define CON_ENABLE bits_desc(SPICC_REG_CON, 0, 1)
 #define CON_MODE bits_desc(SPICC_REG_CON, 1, 1)
@@ -98,6 +103,18 @@
 #define CS_DELAY_EN bits_desc(SPICC_REG_ENHANCE_CNTL, 28, 1)
 #define MAIN_CLK_AO bits_desc(SPICC_REG_ENHANCE_CNTL, 29, 1)
 
+#define MISO_I_CAPTURE_EN     bits_desc(SPICC_REG_ENHANCE_CNTL1, 0, 1)
+#define MISO_I_CAPTURE_DELAY  bits_desc(SPICC_REG_ENHANCE_CNTL1, 1, 9)
+#define MOSI_I_CAPTURE_EN     bits_desc(SPICC_REG_ENHANCE_CNTL1, 14, 1)
+#define FCLK_EN               bits_desc(SPICC_REG_ENHANCE_CNTL1, 15, 1)
+#define MOSI_I_DLYCTL_EN      bits_desc(SPICC_REG_ENHANCE_CNTL1, 16, 1)
+#define MOSI_I_DLYCTL         bits_desc(SPICC_REG_ENHANCE_CNTL1, 17, 3)
+#define MISO_I_DLYCTL_EN      bits_desc(SPICC_REG_ENHANCE_CNTL1, 20, 1)
+#define MISO_I_DLYCTL         bits_desc(SPICC_REG_ENHANCE_CNTL1, 21, 3)
+#define MOSI_O_DLYCTL_EN      bits_desc(SPICC_REG_ENHANCE_CNTL1, 24, 1)
+#define MOSI_O_DLYCTL         bits_desc(SPICC_REG_ENHANCE_CNTL1, 25, 3)
+#define MOSI_OEN_DLYCTL_EN    bits_desc(SPICC_REG_ENHANCE_CNTL1, 28, 1)
+#define MOSI_OEN_DLYCTL       bits_desc(SPICC_REG_ENHANCE_CNTL1, 29, 3)
 
 struct spicc_platform_data {
 	int device_id;
