@@ -59,7 +59,7 @@ int get_wol_state(void){
 }
 
 void rtl8211f_shutdown(void) {
-	if (wol_enable) {
+	if (wol_enable && g_phydev) {
 		rtl8211f_config_speed(g_phydev, 0);
 		rtl8211f_config_mac_addr(g_phydev);
 		rtl8211f_config_max_packet(g_phydev);
@@ -70,7 +70,7 @@ void rtl8211f_shutdown(void) {
 }
 
 void rtl8211f_suspend(void) {
-	if (wol_enable) {
+	if (wol_enable && g_phydev) {
 		rtl8211f_config_mac_addr(g_phydev);
 		rtl8211f_config_max_packet(g_phydev);
 		rtl8211f_config_wol(g_phydev, 1);
@@ -80,7 +80,7 @@ void rtl8211f_suspend(void) {
 }
 
 void rtl8211f_resume(void) {
-	if (wol_enable) {
+	if (wol_enable && g_phydev) {
 		rtl8211f_config_speed(g_phydev, 1);
 		rtl8211f_config_wol(g_phydev, 0);
 		rtl8211f_config_pad_isolation(g_phydev, 0);
@@ -128,7 +128,7 @@ __setup("androidboot.mac=",init_mac_addr);
 
 static void rtl8211f_early_suspend(struct early_suspend *h)
 {
-	if (wol_enable) {
+	if (wol_enable && g_phydev) {
 		rtl8211f_config_mac_addr(g_phydev);
 		rtl8211f_config_max_packet(g_phydev);
 		rtl8211f_config_wol(g_phydev, 1);
@@ -139,7 +139,7 @@ static void rtl8211f_early_suspend(struct early_suspend *h)
 
 static void rtl8211f_late_resume(struct early_suspend *h)
 {
-	if (wol_enable) {
+	if (wol_enable && g_phydev) {
 		rtl8211f_config_speed(g_phydev, 1);
 		rtl8211f_config_wol(g_phydev, 0);
 		rtl8211f_config_pad_isolation(g_phydev, 0);
