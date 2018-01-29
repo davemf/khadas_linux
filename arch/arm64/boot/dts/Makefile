@@ -21,6 +21,9 @@ dts-dirs += xilinx
 dts-dirs += lg
 dts-dirs += zte
 
+dtb-$(CONFIG_ARM64) += amlogic/kvim.dtb \
+                       amlogic/kvim2.dtb
+
 subdir-y	:= $(dts-dirs)
 
 dtstree		:= $(srctree)/$(src)
@@ -40,5 +43,4 @@ endif
 targets += $(DTB_LIST)
 
 dtbs: $(addprefix $(obj)/, $(DTB_LIST))
-
 clean-files := dts/*.dtb *.dtb
