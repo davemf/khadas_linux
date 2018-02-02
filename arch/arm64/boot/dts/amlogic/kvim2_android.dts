@@ -18,7 +18,7 @@
 /dts-v1/;
 
 #include "mesongxm.dtsi"
-#include "partitions.dtsi"
+#include "partitions-android.dtsi"
 #include "meson_drm.dtsi"
 / {
 	model = "Amlogic";
@@ -884,6 +884,8 @@
 				"Ext Spk","LOUTL",
 				"Ext Spk","LOUTR";
 
+		mute_gpio-gpios = <&gpio GPIOH_5 0>;
+		mute_inv;
 		hp_disable;
 		hp_paraments = <800 300 0 5 1>;
 		pinctrl-names = "aml_audio_i2s";
@@ -1167,8 +1169,5 @@
 	status = "okay";
 };
 &i2c_b {
-	status = "okay";
-};
-&i2c_a {
 	status = "okay";
 };

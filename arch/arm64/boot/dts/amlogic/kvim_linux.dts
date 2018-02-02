@@ -19,7 +19,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include "mesongxl.dtsi"
-#include "partitions.dtsi"
+#include "partitions-linux.dtsi"
 #include "meson_drm.dtsi"
 / {
 	model = "Amlogic";

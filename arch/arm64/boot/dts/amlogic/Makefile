@@ -1,14 +1,19 @@
+dtb-$(CONFIG_ARM64) += kvim_android.dtb
+dtb-$(CONFIG_ARM64) += kvim_linux.dtb
+dtb-$(CONFIG_ARM64) += kvim_multios.dtb
+dtb-$(CONFIG_ARM64) += kvim2_android.dtb
+dtb-$(CONFIG_ARM64) += kvim2_linux.dtb
+dtb-$(CONFIG_ARM64) += kvim2_multios.dtb
+dtb-$(CONFIG_ARM64) += kvim2_volumio.dtb
+dtb-$(CONFIG_ARM64) += gxl_p212_1g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p212_2g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p230_2g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p231_1g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p231_2g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p400_2g.dtb
+dtb-$(CONFIG_ARM64) += gxl_p401_2g.dtb
+dtb-$(CONFIG_ARM64) += gxm_q200_2g.dtb
 
-targets += dtbs
-
-DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES))
-ifneq ($(DTB_NAMES),)
-DTB_LIST := $(addsuffix .dtb,$(DTB_NAMES))
-else
-DTB_LIST := $(dtb-y)
-endif
-targets += $(DTB_LIST)
-
-dtbs: $(addprefix $(obj)/, $(DTB_LIST))
-
-clean-files := *.dtb
+always		:= $(dtb-y)
+subdir-y	:= $(dts-dirs)
+clean-files	:= *.dtb

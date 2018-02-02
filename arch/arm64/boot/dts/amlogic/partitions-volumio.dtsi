@@ -1,5 +1,5 @@
 /*
- * arch/arm64/boot/dts/partitions.dtsi
+ * arch/arm64/boot/dts/amlogic/partitions-volumio.dtsi
  * Partitions for Linux Distro(i.e. Ubuntu)
  *
  * Copyright (C) 2017 Khadsa.com All rights reserved.
@@ -18,25 +18,18 @@
 
 / {
 	partitions: partitions{
-        parts = <3>;
-		part-0 = <&logo>;
-		part-1 = <&ramdisk>;
-		part-2 = <&rootfs>;
+        parts = <2>;
+		part-0 = <&volumio>;
+		part-1 = <&volumio_data>;
 
-		logo:logo{
-			pname = "logo";
-			size = <0x0 0x2000000>;
+		volumio:volumio{
+			pname = "volumio";
+			size = <0x0 0x80000000>;
 			mask = <1>;
 		};
-		ramdisk:ramdisk
+		volumio_data:volumio_data
 		{
-			pname = "ramdisk";
-			size = <0x0 0x2000000>;
-			mask = <1>;
-		};
-		rootfs:rootfs
-		{
-			pname = "rootfs";
+			pname = "volumio_data";
 			size = <0xffffffff 0xffffffff>;
 			mask = <4>;
 		};
