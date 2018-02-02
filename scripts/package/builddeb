@@ -256,6 +256,27 @@ ln -sf $(basename $installed_image_path) /boot/zImage > /dev/null 2>&1 || mv /$i
 exit 0
 EOT
 
+## backup kernel image, config and System.map, fixup kernel upgrade issue
+sed -e "s/exit 0//g" -i $tmpdir/DEBIAN/preinst
+cat >> $tmpdir/DEBIAN/preinst <<EOF
+if [ -f /$installed_image_path ]; then
+	mv /$installed_image_path /$installed_image_path.old
+fi
+
+if [ -f /boot/zImage ]; then
+	mv /boot/zImage /boot/zImage.old
+fi
+
+if [ -f /boot/System.map-$version ]; then
+	mv /boot/System.map-$version /boot/System.map-$version.old
+fi
+
+if [ -f /boot/config-$version ]; then
+	mv /boot/config-$version /boot/config-$version.old
+fi
+exit 0
+EOF
+
 # Try to determine maintainer and email values
 if [ -n "$DEBEMAIL" ]; then
        email=$DEBEMAIL
