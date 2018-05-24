@@ -13,7 +13,7 @@ menuconfig AMLOGIC_WDT
 
 
 if AMLOGIC_WDT
-config GX_WDT
+config AMLOGIC_WDT_MESON
 	tristate "Amlogic Meson GXBB SoCs watchdog support"
 	default n
 	help

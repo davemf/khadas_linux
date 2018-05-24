@@ -1171,3 +1171,7 @@
 &i2c_b {
 	status = "okay";
 };
+
+&amlwatchdog {
+	status = "okay";
+};

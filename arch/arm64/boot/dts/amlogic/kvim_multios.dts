@@ -1141,3 +1141,7 @@
 &audio_data{
 	status = "okay";
 };
+
+&amlwatchdog {
+	status = "okay";
+};
