@@ -33,6 +33,8 @@
 #include <bcmendian.h>
 #include <linuxver.h>
 #include <bcmdefs.h>
+#include <dngl_stats.h>
+#include <dhd.h>
 
 
 #if !defined(STBLINUX)
@@ -50,6 +52,7 @@
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 8, 0))
 #include <asm-generic/pci-dma-compat.h>
 #endif
+
 
 #ifdef BCM_SECURE_DMA
 #include <linux/module.h>
@@ -464,7 +467,7 @@ int osl_static_mem_init(osl_t *osh, void *adapter)
 #ifdef CONFIG_DHD_USE_STATIC_BUF
 		if (!bcm_static_buf && adapter) {
 			if (!(bcm_static_buf = (bcm_static_buf_t *)wifi_platform_prealloc(adapter,
-				3, STATIC_BUF_SIZE + STATIC_BUF_TOTAL_LEN))) {
+				DHD_PREALLOC_OSL_BUF, STATIC_BUF_SIZE + STATIC_BUF_TOTAL_LEN))) {
 				printk("can not alloc static buf!\n");
 				bcm_static_skb = NULL;
 				ASSERT(osh->magic == OS_HANDLE_MAGIC);
@@ -483,7 +486,7 @@ int osl_static_mem_init(osl_t *osh, void *adapter)
 			int i;
 			void *skb_buff_ptr = 0;
 			bcm_static_skb = (bcm_static_pkt_t *)((char *)bcm_static_buf + 2048);
-			skb_buff_ptr = wifi_platform_prealloc(adapter, 4, 0);
+			skb_buff_ptr = wifi_platform_prealloc(adapter, DHD_PREALLOC_SKB_BUF, 0);
 			if (!skb_buff_ptr) {
 				printk("cannot alloc static buf!\n");
 				bcm_static_buf = NULL;
@@ -2617,10 +2620,13 @@ osl_sec_dma_free_consistent(osl_t *osh, void *va, uint size, dmaaddr_t pa)
 #include <linux/kallsyms.h>
 #include <net/sock.h>
 void
-osl_pkt_orphan_partial(struct sk_buff *skb)
+osl_pkt_orphan_partial(struct sk_buff *skb, int tsq)
 {
 	uint32 fraction;
 	static void *p_tcp_wfree = NULL;
+
+	if (tsq <= 0)
+		return;
 
 	if (!skb->destructor || skb->destructor == sock_wfree)
 		return;
@@ -2642,8 +2648,9 @@ osl_pkt_orphan_partial(struct sk_buff *skb)
 	 * sk_wmem_alloc to allow more skb can be allocated for this
 	 * socket for better cusion meeting WiFi device requirement
 	 */
-	fraction = skb->truesize * (TSQ_MULTIPLIER - 1) / TSQ_MULTIPLIER;
+	fraction = skb->truesize * (tsq - 1) / tsq;
 	skb->truesize -= fraction;
 	atomic_sub(fraction, &skb->sk->sk_wmem_alloc);
+	skb_orphan(skb);
 }
 #endif /* LINUX_VERSION >= 3.6.0 && TSQ_MULTIPLIER */

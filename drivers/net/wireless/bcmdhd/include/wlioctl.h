@@ -1361,7 +1361,7 @@ typedef struct wl_ioctl {
 #ifdef CONFIG_COMPAT
 typedef struct compat_wl_ioctl {
 	uint cmd;	/**< common ioctl definition */
-	uint32 buf;	/**< pointer to user buffer */
+	uint64 buf;	/**< pointer to user buffer */
 	uint len;	/**< length of user buffer */
 	uint8 set;		/**< 1=set IOCTL; 0=query IOCTL */
 	uint used;	/**< bytes read or written (optional) */
@@ -7997,6 +7997,15 @@ typedef enum {
     MAX_SUPP_ULB_BW
 } ulb_bw_type_t;
 #endif /* WL11ULB */
+
+#ifdef MFP
+/* values for IOV_MFP arg */
+enum {
+    WL_MFP_NONE = 0,
+    WL_MFP_CAPABLE,
+    WL_MFP_REQUIRED
+};
+#endif /* MFP */
 
 #if defined(WLRCC)
 #define MAX_ROAM_CHANNEL      20
