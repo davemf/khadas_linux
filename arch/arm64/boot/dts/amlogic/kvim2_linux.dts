@@ -1168,6 +1168,11 @@
 };
 &i2c_b {
 	status = "okay";
+
+	khadas-wol{
+		compatible = "khadas-wol";
+		reg = <0x18>;
+	};
 };
 &i2c_a {
 	status = "okay";
